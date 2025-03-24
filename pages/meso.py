@@ -87,3 +87,4 @@ if assertividade_data:
 
 else:
     st.warning("Nenhuma assertividade disponível para as mesorregiões.")
+    
