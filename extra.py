@@ -1,7 +1,4 @@
 import pandas as pd
-
-import pandas as pd
-
 def mesoregiao():
     # Dicionário das mesorregiões de Minas Gerais
     mesoregiones_mg = {

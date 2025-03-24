@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import os
 import numpy as np
+import plotly.express as px
 from extra import variaveis, mesoregiao
 
 def criar_grafico_distribuicao(df, variavel, titulo, ano_selecionado, a):
@@ -64,19 +65,16 @@ if os.path.exists(file_path):
 else:
     st.error(f"Arquivo não encontrado: {file_path}")
 
+from extra import mesoregiao, variaveis  
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import os
+import plotly.graph_objects as go
 
-from extra import mesoregiao, variaveis  
+st.subheader("Variáveis por Anos")
 
-st.subheader("Variaveis por Anos")  # Adicionado sub-título de análise de municípios por ano e previsãotitle("Evolução de Municípios nas Previsões")
+df_meso = mesoregiao()
 
-# Obtendo lista de municípios e IDs
-df_meso = mesoregiao()  
-
-# Seleção de múltiplos municípios
 municipios_selecionados = st.multiselect("Selecione os municípios:", df_meso["Municípios"].unique())
 
 if municipios_selecionados:
@@ -88,17 +86,15 @@ if municipios_selecionados:
         if os.path.exists(file_path):
             df = pd.read_excel(file_path)
 
-            # Filtrar os municípios selecionados
             df = df[df["id"].astype(str).isin(df_meso[df_meso["Municípios"].isin(municipios_selecionados)]["id"].astype(str))]
 
             if not df.empty:
                 df["ano"] = f"20{ano}"
                 dados_municipios.append(df)
-    
+
     if dados_municipios:
         df_final = pd.concat(dados_municipios)
 
-        # Criar gráfico interativo
         variavel_selecionada = st.selectbox("Selecione a variável para comparar:", df_final.columns)
         
         fig = go.Figure()
@@ -123,7 +119,6 @@ if municipios_selecionados:
         st.warning("Nenhum dado disponível para os municípios selecionados.")
 
 if municipios_selecionados:
-    # Inicializando o DataFrame que irá armazenar as previsões
     previsao_df = pd.DataFrame(index=municipios_selecionados, columns=[f"20{ano}" for ano in anos])
 
     for municipio in municipios_selecionados:
@@ -133,26 +128,25 @@ if municipios_selecionados:
             if os.path.exists(file_path):
                 df = pd.read_excel(file_path)
 
-                # Filtrar os dados do município
                 df_municipio = df[df["id"].astype(str).isin(df_meso[df_meso["Municípios"] == municipio]["id"].astype(str))]
 
-                if not df_municipio.empty:
-                    # A lógica de previsão é baseada na coluna 'y_previsto'
-                    if 'y_previsto' in df_municipio.columns:
-                        y_previsto = df_municipio['y_previsto'].iloc[0]
-                        # Verificando se a previsão é A ou B
-                        if y_previsto == 'A' or y_previsto == 'B':
-                            previsao_df.loc[municipio, f"20{ano}"] = y_previsto
-                        else:
-                            previsao_df.loc[municipio, f"20{ano}"] = 'Nulo'  # Caso contrário, coloca Nulo
-                    else:
-                        previsao_df.loc[municipio, f"20{ano}"] = 'Nulo'  # Caso a coluna não exista, coloca Nulo
+                if not df_municipio.empty and 'y_previsto' in df_municipio.columns and 'y_real' in df_municipio.columns:
+                    y_previsto = df_municipio['y_previsto'].iloc[0]
+                    y_real = df_municipio['y_real'].iloc[0]
 
-    # Exibindo o DataFrame com as previsões
+                    if y_previsto in ['A', 'B']:
+                        emoji = "🟢" if y_previsto == y_real else "🔴"
+                        previsao_df.loc[municipio, f"20{ano}"] = f"{y_previsto} ({emoji})"
+                    else:
+                        previsao_df.loc[municipio, f"20{ano}"] = 'Nulo'
+                else:
+                    previsao_df.loc[municipio, f"20{ano}"] = 'Nulo'
+
     st.write("Tabela de Previsões A e B ao Longo dos Anos")
     st.dataframe(previsao_df)
 else:
     st.warning("Nenhum município selecionado.")
+
 
 # Obtendo lista de municípios e IDs
 df_meso = mesoregiao()
