@@ -153,13 +153,20 @@ df_meso = mesoregiao()
 
 st.subheader("Assertividade por Mesorregião")
 
-# Seleção de mesorregiões
-mesoregiao_selecionadas = st.multiselect("Selecione as mesorregiões para comparação:", df_meso["Mesorregião"].unique())
+# Opção de selecionar todas as mesorregiões
+opcoes_mesorregioes = df_meso["Mesorregião"].unique()
+selecionar_todas = st.checkbox("Selecionar todas as mesorregiões")
+
+if selecionar_todas:
+    mesoregiao_selecionadas = list(opcoes_mesorregioes)  # Converter para lista
+else:
+    mesoregiao_selecionadas = st.multiselect("Selecione as mesorregiões para comparação:", opcoes_mesorregioes)
 
 # Lista para armazenar os dados de assertividade
 assertividade_data = []
 
-if mesoregiao_selecionadas:
+# 🔹 Correção do erro: Verificar se há pelo menos uma mesorregião selecionada
+if len(mesoregiao_selecionadas) > 0:
     for ano in anos:
         file_path = os.path.join("resultados", "janela_fixa", str(ano), f"resultado_final{ano}.xlsx")
 
@@ -207,5 +214,3 @@ if mesoregiao_selecionadas:
         st.warning("Nenhuma assertividade disponível para as mesorregiões selecionadas.")
 else:
     st.warning("Selecione pelo menos uma mesorregião para comparação.")
-
-
