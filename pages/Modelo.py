@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from extra import variaveis, mesoregiao
+from extra import variaveis
 
 # Lista de anos a serem processados
 anos = [17, 18, 19, 20, 21, 22]
@@ -67,19 +67,16 @@ st.plotly_chart(fig)
 if st.button("Mostrar DataFrame"):
     st.write(df_final)
 
-import streamlit as st
-import pandas as pd
-import os
-import plotly.express as px
-from extra import variaveis  # Importando a lista de variáveis
-
-# Definindo os anos de 2017 a 2022
-anos = [17, 18, 19, 20, 21, 22]
-
 st.subheader("Importância das Variáveis - Gráfico de Linha")
 
+# Adicionando a opção de selecionar todas as variáveis
+selecionar_todas = st.checkbox("Selecionar todas as variáveis")
+
 # Exibindo a lista de variáveis para o usuário selecionar
-variaveis_selecionadas = st.multiselect("Selecione as variáveis:", variaveis)
+if selecionar_todas:
+    variaveis_selecionadas = variaveis  # Seleciona todas automaticamente
+else:
+    variaveis_selecionadas = st.multiselect("Selecione as variáveis:", variaveis)
 
 # Caso o usuário tenha selecionado alguma variável
 if variaveis_selecionadas:
