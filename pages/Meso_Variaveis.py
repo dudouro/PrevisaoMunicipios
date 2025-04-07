@@ -52,7 +52,7 @@ def plot_variavel_por_ano(ano, variavel_selecionada, df_meso, mesorregioes_conto
             color=f"Média de {variavel_selecionada}",
             hover_name='Nome_Mesorregiao',
             hover_data={f"Média de {variavel_selecionada}": True},
-            color_continuous_scale='Viridis',
+            color_continuous_scale='BuGn',
             mapbox_style="open-street-map",
             center={"lat": -18.5122, "lon": -44.5550},
             zoom=5,
@@ -66,6 +66,9 @@ def plot_variavel_por_ano(ano, variavel_selecionada, df_meso, mesorregioes_conto
         )
         
         st.plotly_chart(fig)
+        
+        st.caption("Este gráfico foi desenvolvido utilizando uma paleta de cores acessível, seguindo as recomendações do ColorBrewer, para garantir melhor visualização para pessoas com daltonismo.")
+
     else:
         st.warning("Nenhum dado disponível para a variável selecionada.")
 
