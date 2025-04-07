@@ -61,7 +61,7 @@ if os.path.exists(file_path):
         color='Acerto (%)',  # Coluna que define as cores (assertividade)
         hover_name='Nome_Mesorregiao',  # Nome da mesorregião ao passar o mouse
         hover_data={'Acerto (%)': True},
-        color_continuous_scale='Blues',  # Escala de cores azuis
+        color_continuous_scale='BuGn',  # Escala de cores azuis
         mapbox_style="open-street-map",  # Estilo do mapa
         center={"lat": -18.5122, "lon": -44.5550},  # Centro do mapa (coordenadas de Minas Gerais)
         zoom=5,  # Nível de zoom
@@ -77,6 +77,8 @@ if os.path.exists(file_path):
 
     # 8. Exibir o mapa no Streamlit
     st.plotly_chart(fig)
+    
+    st.caption("Este gráfico foi desenvolvido utilizando uma paleta de cores acessível, seguindo as recomendações do ColorBrewer, para garantir melhor visualização para pessoas com daltonismo.")
 
 else:
     st.warning(f"Nenhum dado disponível para o ano {ano_selecionado}.")
