@@ -195,20 +195,34 @@ if len(mesoregiao_selecionadas) > 0:
             assertividade_data.append(assertividade_mesorregiao)
 
     if assertividade_data:
-        # Concatenar os dados de assertividade de todos os anos
-        assertividade_df = pd.concat(assertividade_data)
+    # Concatenar os dados de assertividade de todos os anos
+    assertividade_df = pd.concat(assertividade_data)
 
-        # Selecionar as colunas necessárias
-        assertividade_df = assertividade_df[["Mesorregião", "Ano", "acerto"]]
-        assertividade_df.columns = ["Mesorregião", "Ano", "Acerto (%)"]
+    # Selecionar as colunas necessárias
+    assertividade_df = assertividade_df[["Mesorregião", "Ano", "acerto"]]
+    assertividade_df.columns = ["Mesorregião", "Ano", "Acerto (%)"]
 
-        # Plotar gráfico de assertividade por mesorregião
-        fig = px.line(assertividade_df, x="Ano", y="Acerto (%)", color="Mesorregião", 
-                      labels={"Acerto (%)": "Assertividade (%)", "Mesorregião": "Mesorregião"},
-                      title="Assertividade do Modelo por Mesorregião ao Longo dos Anos")
+    # Definir a paleta Paired (12-class)
+    paired_colors = [
+        "#a6cee3", "#1f78b4", "#b2df8a", "#33a02c",
+        "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00",
+        "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"
+    ]
 
-        fig.update_layout(xaxis_title="Ano", yaxis_title="Assertividade (%)", title_x=0.5)
-        st.plotly_chart(fig)
+    # Plotar gráfico de assertividade por mesorregião
+    fig = px.line(
+        assertividade_df, 
+        x="Ano", 
+        y="Acerto (%)", 
+        color="Mesorregião", 
+        labels={"Acerto (%)": "Assertividade (%)", "Mesorregião": "Mesorregião"},
+        title="Assertividade do Modelo por Mesorregião ao Longo dos Anos",
+        color_discrete_sequence=paired_colors
+    )
+
+    fig.update_layout(xaxis_title="Ano", yaxis_title="Assertividade (%)", title_x=0.5)
+    st.plotly_chart(fig)
+
 
     else:
         st.warning("Nenhuma assertividade disponível para as mesorregiões selecionadas.")
