@@ -32,7 +32,7 @@ def verificar_alerta(var, valor):
     # CAPAG
     if var == "poupanca_corrente" and valor <= 0:
         st.sidebar.warning("⚠️ Déficit na poupança corrente (valor ≤ 0).")
-    if var == "indicador_de_liquidez" and valor > 1:
+    if var == "indicador_de_liquidez" and valor < 1:
         st.sidebar.warning("⚠️ Indicador de liquidez acima do adequado (> 1).")
     if var == "endividamento" and valor > 90:
         st.sidebar.warning("⚠️ Endividamento elevado (acima de 90% da RCL).")
