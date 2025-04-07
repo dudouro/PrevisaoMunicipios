@@ -1,4 +1,4 @@
-from extra import mesoregiao, variaveis  
+from extra import mesoregiao
 import streamlit as st
 import geopandas as gpd
 import pandas as pd
@@ -6,70 +6,79 @@ import plotly.express as px
 import os
 
 # Título do aplicativo
-st.title("Mapa de Variáveis por Mesorregião em Minas Gerais")
+st.title("Mapa de Assertividade por Mesorregião em Minas Gerais")
 
 # 1. Carregar o arquivo GeoJSON com os contornos das mesorregiões
 contorno_path = "pages/MG_Mesorregioes_Contorno.geojson"
 mesorregioes_contorno = gpd.read_file(contorno_path)
 
-# 2. Carregar os dados das mesorregiões
+# 2. Carregar os dados de mesorregião
 df_meso = mesoregiao()
 anos = [17, 18, 19, 20, 21, 22]
 
-# 3. Selecionar a variável desejada
-variavel_selecionada = st.selectbox("Selecione a variável para análise:", variaveis)
-ano_selecionado = st.selectbox("Selecione o ano:", anos)
+# Seleção do ano
+ano_selecionado = st.selectbox("Selecione o ano da previsão:", anos)
 
-def plot_variavel_por_ano(ano, variavel_selecionada, df_meso, mesorregioes_contorno):
-    file_path = os.path.join("resultados", "janela_fixa", str(ano), f"resultado_final{ano}.xlsx")
-    variavel_data = []
+# 3. Caminho do arquivo do ano selecionado
+file_path = os.path.join("resultados", "janela_fixa", str(ano_selecionado), f"resultado_final{ano_selecionado}.xlsx")
+
+# 4. Verificar se o arquivo existe
+if os.path.exists(file_path):
+    df = pd.read_excel(file_path)
+
+    # Calcular a assertividade geral por mesorregião
+    df["acerto"] = df["y_real"] == df["y_previsto"]
     
-    if os.path.exists(file_path):
-        df = pd.read_excel(file_path)
-        
-        if variavel_selecionada in df.columns:
-            variavel_mesorregiao = df.groupby("v21")[variavel_selecionada].mean().reset_index()
-            variavel_mesorregiao["Ano"] = f"20{ano}"
-            variavel_mesorregiao = variavel_mesorregiao.merge(df_meso[["v21", "Mesorregião"]], on="v21", how="left")
-            variavel_data.append(variavel_mesorregiao)
+    # Agrupar os acertos por v21 (mesorregião) e calcular a média
+    assertividade_mesorregiao = df.groupby("v21")["acerto"].mean() * 100
     
-    if variavel_data:
-        variavel_df = pd.concat(variavel_data)
-        variavel_media = variavel_df.groupby("Mesorregião")[variavel_selecionada].mean().reset_index()
-        variavel_media.columns = ["Mesorregião", f"Média de {variavel_selecionada}"]
-        
-        mesorregioes_contorno = mesorregioes_contorno.merge(
-            variavel_media,
-            left_on="Nome_Mesorregiao",
-            right_on="Mesorregião",
-            how="left"
-        )
-        
-        fig = px.choropleth_mapbox(
-            mesorregioes_contorno,
-            geojson=mesorregioes_contorno.geometry,
-            locations=mesorregioes_contorno.index,
-            color=f"Média de {variavel_selecionada}",
-            hover_name='Nome_Mesorregiao',
-            hover_data={f"Média de {variavel_selecionada}": True},
-            color_continuous_scale='BuGn',
-            mapbox_style="open-street-map",
-            center={"lat": -18.5122, "lon": -44.5550},
-            zoom=5,
-            opacity=0.7
-        )
-        
-        fig.update_layout(
-            title=f"Distribuição de {variavel_selecionada} por Mesorregião - {ano}",
-            margin={"r": 0, "t": 0, "l": 0, "b": 0},
-            coloraxis_colorbar=dict(title=f"{variavel_selecionada}")
-        )
-        
-        st.plotly_chart(fig)
-        
-        st.caption("Este gráfico foi desenvolvido utilizando uma paleta de cores acessível, seguindo as recomendações do ColorBrewer, para garantir melhor visualização para pessoas com daltonismo.")
+    # Resetar índice para juntar com df_meso
+    assertividade_mesorregiao = assertividade_mesorregiao.reset_index()
+    
+    # Adicionar dados do ano
+    assertividade_mesorregiao["Ano"] = f"20{ano_selecionado}"
 
-    else:
-        st.warning("Nenhum dado disponível para a variável selecionada.")
+    # Merge com o dataframe de mesorregião para obter o nome da mesorregião
+    assertividade_mesorregiao = assertividade_mesorregiao.merge(df_meso[["v21", "Mesorregião"]], on="v21", how="left")
 
-plot_variavel_por_ano(ano_selecionado, variavel_selecionada, df_meso, mesorregioes_contorno)
+    # Calcular a assertividade média por mesorregião
+    assertividade_media = assertividade_mesorregiao.groupby("Mesorregião")["acerto"].mean().reset_index()
+    assertividade_media.columns = ["Mesorregião", "Acerto (%)"]
+
+    # 5. Unir os dados de assertividade com o GeoJSON das mesorregiões
+    mesorregioes_contorno = mesorregioes_contorno.merge(
+        assertividade_media,
+        left_on="Nome_Mesorregiao",
+        right_on="Mesorregião",
+        how="left"
+    )
+
+    # 6. Criar o mapa interativo com Plotly
+    fig = px.choropleth_mapbox(
+        mesorregioes_contorno,
+        geojson=mesorregioes_contorno.geometry,
+        locations=mesorregioes_contorno.index,
+        color='Acerto (%)',  # Coluna que define as cores (assertividade)
+        hover_name='Nome_Mesorregiao',  # Nome da mesorregião ao passar o mouse
+        hover_data={'Acerto (%)': True},
+        color_continuous_scale='BuGn',  # Escala de cores azuis
+        mapbox_style="open-street-map",  # Estilo do mapa
+        center={"lat": -18.5122, "lon": -44.5550},  # Centro do mapa (coordenadas de Minas Gerais)
+        zoom=5,  # Nível de zoom
+        opacity=0.7  # Opacidade do mapa
+    )
+
+    # 7. Atualizar o layout do mapa
+    fig.update_layout(
+        title=f"Assertividade por Mesorregião em Minas Gerais ({ano_selecionado})",
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        coloraxis_colorbar=dict(title="Assertividade (%)")
+    )
+
+    # 8. Exibir o mapa no Streamlit
+    st.plotly_chart(fig)
+    
+    st.caption("Este gráfico foi desenvolvido utilizando uma paleta de cores acessível, seguindo as recomendações do ColorBrewer, para garantir melhor visualização para pessoas com daltonismo.")
+
+else:
+    st.warning(f"Nenhum dado disponível para o ano {ano_selecionado}.")
