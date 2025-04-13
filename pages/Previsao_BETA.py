@@ -28,28 +28,42 @@ if "inputs" not in st.session_state:
     st.session_state.inputs = {var: 0.0 for var in variaveis}
 
 # Função para verificar alertas CAPAG e LRF
-def verificar_alerta(var, valor):
-    # CAPAG
-    if var == "poupanca_corrente" and valor <= 0:
-        st.sidebar.warning("⚠️ Déficit na poupança corrente (valor ≤ 0).")
-    if var == "indicador_de_liquidez" and valor < 1:
-        st.sidebar.warning("⚠️ Indicador de liquidez abaixo do adequado (> 1).")
-    if var == "endividamento" and valor > 90:
-        st.sidebar.warning("⚠️ Endividamento elevado (acima de 90% da RCL).")
-    
-    # LRF
-    if var == "Despesa com pessoal" and valor > 60:
-        st.sidebar.warning("⚠️ Despesa com pessoal acima do limite da LRF (> 60% da RCL).")
-    if var == "Dívida Consolidada" and valor > 120:
-        st.sidebar.warning("⚠️ Dívida consolidada acima de 120% da RCL (limite LRF).")
-    if var == "Operações de crédito" and valor > 16:
-        st.sidebar.warning("⚠️ Operações de crédito elevadas, atente-se ao limite prudencial.")
-    if var == "comprometimento_das_receitas_correntes_com_as_obrigacoes_de_curto_prazo" and valor > 30:
-        st.sidebar.warning("⚠️ Comprometimento das receitas com obrigações de curto prazo acima de 30%.")
-    if var == "comprometimento_das_receitas_correntes_com_o_endividamento" and valor > 20:
-        st.sidebar.warning("⚠️ Comprometimento das receitas com endividamento elevado (> 20%).")
+def verificar_alerta(var, valor, rcl):
+    # LRF - Despesa com Pessoal
+    if var == "Despesa com pessoal":
+        if valor / rcl >= 0.6:
+            st.sidebar.error("🚨 Violação da LRF: Despesa com pessoal ultrapassa 60% da RCL!")
+        elif valor / rcl >= 0.54:
+            st.sidebar.warning("⚠️ Alerta LRF: Despesa com pessoal próxima ao limite (≥ 54% da RCL).")
+
+    # LRF - Dívida Consolidada
+    if var == "divida_consolidada":
+        if valor / rcl > 1.2:
+            st.sidebar.error("🚨 Violação da LRF: Dívida consolidada ultrapassa 1,2x a RCL!")
+
+    # CAPAG - Endividamento
+    if var == "endividamento":
+        if valor / rcl > 1.6:
+            st.sidebar.error("🚨 Endividamento muito elevado (> 1,6x RCL) — Categoria D.")
+        elif valor / rcl > 1.2:
+            st.sidebar.warning("⚠️ Endividamento elevado (> 1,2x RCL) — Categoria C.")
+
+    # CAPAG - Poupança Corrente
+    if var == "poupanca_corrente" and valor < 0:
+        st.sidebar.warning("⚠️ Déficit na poupança corrente (valor < 0).")
+
+    # CAPAG - Liquidez Relativa
+    if var == "indicador_de_liquidez" and valor > 1:
+        st.sidebar.warning("⚠️ Liquidez relativa acima do adequado (> 1).")
 
 # Coletar dados via sliders dinâmicos
+rcl = st.sidebar.slider(
+            "Receita Corrente Líquida (RCL)",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            format="%.2f"
+        )
 dados = {}
 for var in variaveis:
     if var in df_referencia.columns:
@@ -65,7 +79,7 @@ for var in variaveis:
             format="%.2f"
         )
         dados[var] = valor
-        verificar_alerta(var, valor)
+        verificar_alerta(var, valor, rcl)
 
 # Botão para realizar a previsão
 if st.button("Fazer Previsão"):
@@ -133,11 +147,4 @@ for i, var in enumerate(endividamento):
     with [col1, col2, col3][i % 3]:
         st.metric(label=var.replace("_", " ").title(), value=f"{df[var].values[0]:,.2f}")
 
-# Resumo rápido
-st.markdown("#### 📌 Resumo geral")
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="Total de Variáveis", value=len(variaveis))
-with col2:
-    st.metric(label="Média dos Valores Informados", value=f"{df.mean(axis=1).values[0]:.2f}")
 
