@@ -3,9 +3,10 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from extra import variaveis
+from PIL import Image
 
 # Configurações da página
-st.set_page_config(page_title="Análise do Modelo", layout="wide")
+st.set_page_config(page_title="Análise do Modelo", layout="wide",page_icon='📈')
 st.title("📈 Análise do Desempenho do Modelo")
 
 # Constantes e configurações
@@ -39,6 +40,15 @@ def carregar_dados_classificacao(janela):
             st.error(f"Erro ao carregar {path}: {str(e)}")
     return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
 
+def carregar_arvores():
+    """Carrega exemplos de árvores de decisão"""
+    arvores = {}
+    for ano in ANOS:
+        path = os.path.join("resultados", "janela_extendida", str(ano), f"ext_arvore{ano}.png")
+        if os.path.exists(path):
+            arvores[ano] = path
+    return arvores
+
 @st.cache_data
 def carregar_importancias():
     """Carrega dados de importância de variáveis com cache"""
@@ -55,7 +65,7 @@ def carregar_importancias():
     return pd.concat(dados) if dados else pd.DataFrame()
 
 # Interface principal
-tab1, tab2 = st.tabs(["Métricas de Classificação", "Importância de Variáveis"])
+tab1, tab2, tab3 = st.tabs(["Métricas de Classificação", "Importância de Variáveis", "Exemplo de Árvore"])
 
 with tab1:
     st.header("Desempenho do Modelo por Janela Temporal")
@@ -224,3 +234,47 @@ with tab2:
     
     else:
         st.error("Dados de importância não encontrados")
+        
+with tab3:
+    st.header("🌳 Visualização de Árvore de Decisão")
+    
+    # Carregar árvores disponíveis
+    arvores = carregar_arvores()
+    
+    if arvores:
+        # Selecionar ano
+        ano_arvore = st.selectbox(
+            "Selecione o ano para visualizar a árvore:",
+            options=sorted(arvores.keys(), reverse=True),
+            format_func=lambda x: f"20{x}",
+            help="Exemplo visual da árvore de decisão gerada pelo modelo"
+        )
+        
+        # Exibir imagem centralizada
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+            st.image(
+                arvores[ano_arvore],
+                caption=f"Árvore de Decisão - 20{ano_arvore}",
+                use_column_width=True
+            )
+            st.caption(f"Resolução original: {Image.open(arvores[ano_arvore]).size}")
+            
+            # Botão de download
+            with open(arvores[ano_arvore], "rb") as file:
+                btn = st.download_button(
+                    label="Baixar imagem",
+                    data=file,
+                    file_name=f"arvore_20{ano_arvore}.png",
+                    mime="image/png"
+                )
+    else:
+        st.error("Nenhum exemplo de árvore encontrado nos arquivos de resultados")
+        
+    st.markdown("""
+    **Interpretação:**
+    - Cada nó mostra a variável de divisão e o limiar
+    - Valores mostram a distribuição das classes
+    - Profundidade indica complexidade do modelo
+    - Cores indicam pureza dos nós (tons mais fortes = maior pureza)
+    """)
