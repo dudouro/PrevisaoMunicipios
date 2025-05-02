@@ -4,14 +4,16 @@ import plotly.graph_objects as go
 import plotly.express as px
 import os
 import numpy as np
+import geopandas as gpd
 from extra import variaveis, mesoregiao
 
 # Configuração inicial da página
-st.set_page_config(page_title="Análise Municipal", layout="wide", page_icon="🏙️")
+st.set_page_config(page_title="Previsão Financeira Municipal", layout="wide", page_icon="🏙️")
 
 # Constantes
 ANOS = [17, 18, 19, 20, 21, 22]
 COLORS = {'A': '#4B9CD3', 'B': '#FF6B6B'}
+GEOJSON_PATH = "pages/MG_Mesorregioes_Contorno.geojson"
 CSS = """
 <style>
 [data-testid="stMetricLabel"] {font-size: 1.1rem;}
@@ -75,6 +77,71 @@ def create_distribution_chart(df, variable, title, year, tipo):
     )
     return fig
 
+def create_map(ano_selecionado, file_path):
+    """Cria o mapa de assertividade para um ano específico"""
+    try:
+        if os.path.exists(file_path):
+            # Verificar extensão e ler arquivo corretamente
+            if file_path.endswith('.xlsx'):
+                df = pd.read_excel(file_path, engine='openpyxl')
+            elif file_path.endswith('.xls'):
+                df = pd.read_excel(file_path, engine='xlrd')
+            else:
+                raise ValueError("Formato de arquivo não suportado")
+            
+            # Restante do código mantido igual
+            df["acerto"] = df["y_real"] == df["y_previsto"]
+            assertividade_mesorregiao = df.groupby("v21")["acerto"].mean() * 100
+            assertividade_mesorregiao = assertividade_mesorregiao.reset_index()
+            assertividade_mesorregiao["Ano"] = f"20{ano_selecionado}"
+
+            df_meso = mesoregiao()  # Movido para dentro do bloco
+            assertividade_mesorregiao = assertividade_mesorregiao.merge(
+                df_meso[["v21", "Mesorregião"]], 
+                on="v21", 
+                how="left"
+            )
+
+            mesorregioes_contorno = gpd.read_file("pages/MG_Mesorregioes_Contorno.geojson")
+            assertividade_media = assertividade_mesorregiao.groupby("Mesorregião")["acerto"].mean().reset_index()
+            assertividade_media.columns = ["Mesorregião", "Acerto (%)"]
+
+            mesorregioes_contorno = mesorregioes_contorno.merge(
+                assertividade_media,
+                left_on="Nome_Mesorregiao",
+                right_on="Mesorregião",
+                how="left"
+            )
+
+            fig = px.choropleth_mapbox(
+                mesorregioes_contorno,
+                geojson=mesorregioes_contorno.geometry,
+                locations=mesorregioes_contorno.index,
+                color='Acerto (%)',
+                hover_name='Nome_Mesorregiao',
+                hover_data={'Acerto (%)': ':.1f%'},
+                color_continuous_scale='BuGn',
+                mapbox_style="open-street-map",
+                center={"lat": -18.5122, "lon": -44.5550},
+                zoom=5,
+                opacity=0.7
+            )
+
+            fig.update_layout(
+                title=f"Assertividade por Mesorregião em Minas Gerais (20{ano_selecionado})",
+                margin={"r":0,"t":30,"l":0,"b":0},
+                coloraxis_colorbar=dict(title="Assertividade (%)")
+            )
+
+            return fig  # Retorna a figura em vez de plotar diretamente
+            
+        else:
+            st.warning(f"Nenhum dado disponível para 20{ano_selecionado}")
+            return None
+
+    except Exception as e:
+        st.error(f"Erro crítico: {str(e)}")
+        return None
 
 def create_metrics(df, municipios):
     """Cria métricas de resumo"""
@@ -87,10 +154,10 @@ def create_metrics(df, municipios):
         st.metric("Último Ano", df['Ano'].max())
 
 # Interface principal
-st.title("📊 Análise Financeira Municipal")
+st.title("📊 Previsão Financeira Municipal")
 
 # Abas para organização
-tab1, tab2, tab3 = st.tabs(["Distribuição", "Evolução Municipal", "Assertividade"])
+tab1, tab2, tab3, tab4 = st.tabs(["Distribuição", "Evolução Municipal", "Assertividade", "Mapa de Assertividade"])
 
 with tab1:
     # Seção de distribuição
@@ -209,3 +276,16 @@ with tab3:
                         labels={'acerto': 'Taxa de Acerto', 'Ano': ''})
             fig.update_yaxes(tickformat=".0%")
             st.plotly_chart(fig, use_container_width=True)
+            
+with tab4:
+    ano_mapa = st.selectbox("Selecione o ano:", ANOS, key="map_year")
+    
+    file_path = os.path.join("resultados", "janela_fixa", str(ano_mapa), f"resultado_final{ano_mapa}.xlsx")
+    
+    if st.button("🗺️ Gerar Mapa", key="map_btn"):
+        with st.spinner("Processando dados geográficos..."):
+            fig = create_map(ano_mapa, file_path)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Não foi possível gerar o mapa para este ano")
