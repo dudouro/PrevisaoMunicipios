@@ -94,7 +94,6 @@ tab1, tab2, tab3 = st.tabs(["Distribuição", "Evolução Municipal", "Assertivi
 
 with tab1:
     # Seção de distribuição
-    st.header("Configurações")
     selected_year = st.selectbox("Ano Base", ANOS, index=len(ANOS)-1)
     selected_variable = st.selectbox("Variável Principal", variaveis)
     df_year = load_data(selected_year)
