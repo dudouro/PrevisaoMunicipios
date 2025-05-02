@@ -1,230 +1,212 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 import os
 import numpy as np
-import plotly.express as px
 from extra import variaveis, mesoregiao
 
-def criar_grafico_distribuicao(df, variavel, titulo, ano_selecionado, a):
-    df_A = df[df[f'y_{a}'] == 'A']
-    df_B = df[df[f'y_{a}'] == 'B']
+# Configuração inicial da página
+st.set_page_config(page_title="Análise Municipal", layout="wide", page_icon="🏙️")
 
-    # Definir bins comuns
-    min_val = min(df_A[variavel].min(), df_B[variavel].min())
-    max_val = max(df_A[variavel].max(), df_B[variavel].max())
-    bins = np.linspace(min_val, max_val, 20)  # 20 bins comuns
+# Constantes
+ANOS = [17, 18, 19, 20, 21, 22]
+COLORS = {'A': '#4B9CD3', 'B': '#FF6B6B'}
+CSS = """
+<style>
+[data-testid="stMetricLabel"] {font-size: 1.1rem;}
+[data-testid="stMarkdownContainer"] h3 {color: #2B3A42;}
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
 
-    hist_A, _ = np.histogram(df_A[variavel], bins=bins, density=True)
-    hist_B, _ = np.histogram(df_B[variavel], bins=bins, density=True)
+# Funções utilitárias
+def load_data(ano):
+    """Carrega os dados para um ano específico"""
+    file_path = os.path.join("resultados", "janela_fixa", str(ano), f"resultado_final{ano}.xlsx")
+    return pd.read_excel(file_path) if os.path.exists(file_path) else None
 
-    # Ajuste da posição dos bins para exibição
-    bin_centers = (bins[:-1] + bins[1:]) / 2  
+def create_distribution_chart(df, variable, title, year, tipo):
+    """Cria gráfico de distribuição comparativa com contagens absolutas"""
+    df_A = df[df[f'y_{tipo}'] == 'A']
+    df_B = df[df[f'y_{tipo}'] == 'B']
+    total = len(df_A) + len(df_B)
+
+    min_val = df[variable].min()
+    max_val = df[variable].max()
+    bins = np.linspace(min_val, max_val, 20)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    hist_A, _ = np.histogram(df_A[variable], bins=bins)
+    hist_B, _ = np.histogram(df_B[variable], bins=bins)
+
+    # Calcular porcentagens
+    pct_A = (hist_A / total) * 100
+    pct_B = (hist_B / total) * 100
 
     fig = go.Figure()
-    
-    fig.add_trace(go.Bar(x=bin_centers, y=hist_A, marker_color='blue', name='Situação A', opacity=0.75))
-    fig.add_trace(go.Bar(x=bin_centers, y=-hist_B, marker_color='red', name='Situação B', opacity=0.75))
+    fig.add_trace(go.Bar(
+        x=bin_centers, 
+        y=hist_A,
+        marker_color=COLORS['A'], 
+        name='Situação A',
+        opacity=0.75,
+        hovertemplate='Faixa: %{x:.2f}<br>A: %{y} municípios<extra></extra>'
+    ))
 
+    fig.add_trace(go.Bar(
+        x=bin_centers, 
+        y=-hist_B,
+        marker_color=COLORS['B'], 
+        name='Situação B',
+        opacity=0.75,
+        hovertemplate='Faixa: %{x:.2f}<br>B: %{y} municípios<extra></extra>'
+    ))
+
+    range_text = f"Intervalo: {min_val:.2f} a {max_val:.2f}"
     fig.update_layout(
-        title=f"{titulo} - 20{ano_selecionado} - {a}",
-        xaxis_title=variavel,
-        yaxis_title="Densidade",
+        title=f"{title} - 20{year} - {tipo}",
+        xaxis_title=f"{variable} ({range_text})",
+        yaxis_title="Quantidade de Municípios",
         barmode='overlay',
         bargap=0,
+        hovermode='x unified',
         showlegend=True
     )
+    return fig
 
-    st.plotly_chart(fig)
 
+def create_metrics(df, municipios):
+    """Cria métricas de resumo"""
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Municípios Selecionados", len(municipios))
+    with col2:
+        st.metric("Média Acertos", f"{df['acerto'].mean():.1%}")
+    with col3:
+        st.metric("Último Ano", df['Ano'].max())
 
-# Criando a interface Streamlit
-st.title("Análise Financeira por Ano dos Municipios")
+# Interface principal
+st.title("📊 Análise Financeira Municipal")
 
-anos = [17, 18, 19, 20, 21, 22]
+# Abas para organização
+tab1, tab2, tab3 = st.tabs(["Distribuição", "Evolução Municipal", "Assertividade"])
 
-st.subheader("Distribuição dos Municipios por Variável")
+with tab1:
+    # Seção de distribuição
+    st.header("Configurações")
+    selected_year = st.selectbox("Ano Base", ANOS, index=len(ANOS)-1)
+    selected_variable = st.selectbox("Variável Principal", variaveis)
+    df_year = load_data(selected_year)
+    if df_year is not None:
+        fig = create_distribution_chart(df_year, selected_variable, 
+                                      f"Distribuição de {selected_variable}", 
+                                      selected_year, 'real')
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.error(f"Dados não encontrados para 20{selected_year}")
 
-# Seleção do ano
-ano_selecionado = st.selectbox("Selecione o ano da previsão:", anos)
-
-# Seleção da variável para análise
-variavel_selecionada = st.selectbox("Selecione a variável para comparar:", variaveis)
-
-# Caminho do arquivo
-file_path = os.path.join("resultados", "janela_fixa", str(ano_selecionado), f"resultado_final{ano_selecionado}.xlsx")
-
-# Verificando se o arquivo existe
-if os.path.exists(file_path):
-    # Ler arquivo Excel
-    df = pd.read_excel(file_path)
-
-    # Escolher a função de acordo com a opção selecionada
-    criar_grafico_distribuicao(df, variavel_selecionada, f"Distribuição do {variavel_selecionada}", ano_selecionado, 'previsto')
-
-else:
-    st.error(f"Arquivo não encontrado: {file_path}")
-
-from extra import mesoregiao, variaveis  
-import streamlit as st
-import pandas as pd
-import os
-import plotly.graph_objects as go
-
-st.subheader("Variáveis por Anos")
-
-df_meso = mesoregiao()
-
-municipios_selecionados = st.multiselect("Selecione os municípios:", df_meso["Municípios"].unique())
-
-if municipios_selecionados:
-    dados_municipios = []
-
-    for ano in anos:
-        file_path = os.path.join("resultados", "janela_fixa", str(ano), f"resultado_final{ano}.xlsx")
-
-        if os.path.exists(file_path):
-            df = pd.read_excel(file_path)
-
-            df = df[df["id"].astype(str).isin(df_meso[df_meso["Municípios"].isin(municipios_selecionados)]["id"].astype(str))]
-
-            if not df.empty:
-                df["ano"] = f"20{ano}"
-                dados_municipios.append(df)
-
-    if dados_municipios:
-        df_final = pd.concat(dados_municipios)
-
-        variavel_selecionada = st.selectbox("Selecione a variável para comparar:", df_final.columns)
+with tab2:
+    # Seção de evolução municipal
+    df_meso = mesoregiao()
+    municipios = st.multiselect("Selecione Municípios:", 
+                              df_meso["Municípios"].unique(),
+                              key='municipios_tab2')
+    
+    if municipios:
+        # Criar mapeamento de município para ID
+        mapa_ids = df_meso.set_index("Municípios")["id"].astype(str).to_dict()
         
-        fig = go.Figure()
-
-        for municipio in municipios_selecionados:
-            df_municipio = df_final[df_final["id"].astype(str).isin(df_meso[df_meso["Municípios"] == municipio]["id"].astype(str))]
-
-            fig.add_trace(go.Scatter(
-                x=df_municipio["ano"], 
-                y=df_municipio[variavel_selecionada], 
-                mode='lines+markers', 
-                name=municipio
-            ))
-
-        fig.update_layout(title="Evolução dos Municípios ao Longo dos Anos",
-                          xaxis_title="Ano",
-                          yaxis_title=variavel_selecionada)
-
-        st.plotly_chart(fig)
-
-    else:
-        st.warning("Nenhum dado disponível para os municípios selecionados.")
-
-if municipios_selecionados:
-    previsao_df = pd.DataFrame(index=municipios_selecionados, columns=[f"20{ano}" for ano in anos])
-
-    for municipio in municipios_selecionados:
-        for ano in anos:
-            file_path = os.path.join("resultados", "janela_fixa", str(ano), f"resultado_final{ano}.xlsx")
-
-            if os.path.exists(file_path):
-                df = pd.read_excel(file_path)
-
-                df_municipio = df[df["id"].astype(str).isin(df_meso[df_meso["Municípios"] == municipio]["id"].astype(str))]
-
-                if not df_municipio.empty and 'y_previsto' in df_municipio.columns and 'y_real' in df_municipio.columns:
-                    y_previsto = df_municipio['y_previsto'].iloc[0]
-                    y_real = df_municipio['y_real'].iloc[0]
-
-                    if y_previsto in ['A', 'B']:
-                        emoji = "🟢" if y_previsto == y_real else "🔴"
-                        previsao_df.loc[municipio, f"20{ano}"] = f"{y_previsto} ({emoji})"
-                    else:
-                        previsao_df.loc[municipio, f"20{ano}"] = 'Nulo'
-                else:
-                    previsao_df.loc[municipio, f"20{ano}"] = 'Nulo'
-
-    st.write("Tabela de Previsões A e B ao Longo dos Anos")
-    st.dataframe(previsao_df)
-else:
-    st.warning("Nenhum município selecionado.")
-
-
-# Obtendo lista de municípios e IDs
-df_meso = mesoregiao()
-
-st.subheader("Assertividade por Mesorregião")
-
-# Opção de selecionar todas as mesorregiões
-opcoes_mesorregioes = df_meso["Mesorregião"].unique()
-selecionar_todas = st.checkbox("Selecionar todas as mesorregiões")
-
-if selecionar_todas:
-    mesoregiao_selecionadas = list(opcoes_mesorregioes)  # Converter para lista
-else:
-    mesoregiao_selecionadas = st.multiselect("Selecione as mesorregiões para comparação:", opcoes_mesorregioes)
-
-# Lista para armazenar os dados de assertividade
-assertividade_data = []
-
-# 🔹 Correção do erro: Verificar se há pelo menos uma mesorregião selecionada
-if len(mesoregiao_selecionadas) > 0:
-    for ano in anos:
-        file_path = os.path.join("resultados", "janela_fixa", str(ano), f"resultado_final{ano}.xlsx")
-
-        if os.path.exists(file_path):
-            df = pd.read_excel(file_path)
-
-            # Calcular a assertividade geral por mesorregião
-            df["acerto"] = df["y_real"] == df["y_previsto"]
+        dados = []
+        for ano in ANOS:
+            df = load_data(ano)
+            if df is not None:
+                # Filtrar IDs dos municípios selecionados
+                ids_selecionados = [mapa_ids[m] for m in municipios]
+                df_filtered = df[df["id"].astype(str).isin(ids_selecionados)]
+                
+                if not df_filtered.empty:
+                    df_filtered["Ano"] = f"20{ano}"
+                    dados.append(df_filtered)
+        
+        if dados:
+            df_final = pd.concat(dados)
+            # Adicionar nome do município ao dataframe
+            df_final["Município"] = df_final["id"].astype(str).map(
+                {v: k for k, v in mapa_ids.items()}
+            )
             
-            # Agrupar os acertos por v21 (mesorregião) e calcular a média
-            assertividade_mesorregiao = df.groupby("v21")["acerto"].mean() * 100
+            variavel = st.selectbox("Variável para Análise:", 
+                                  variaveis,
+                                  key='var_tab2')
             
-            # Resetar índice para juntar com df_meso
-            assertividade_mesorregiao = assertividade_mesorregiao.reset_index()
+            fig = px.line(df_final, x="Ano", y=variavel, 
+                        color=df_final["id"].map(df_meso.set_index("id")["Municípios"]),
+                        markers=True, line_shape='spline',
+                        title=f"Evolução de {variavel} por Município")
+            st.plotly_chart(fig, use_container_width=True)
             
-            # Adicionar dados do ano
-            assertividade_mesorregiao["Ano"] = f"20{ano}"
+            # Tabela
+            st.subheader("Histórico de Classificações - Previsto(Real)")
+            
+            # Função para colorir o texto
+            def color_text(val):
+                if isinstance(val, str) and '(' in val:
+                    real, prev = val.split('(')
+                    real = real.strip()
+                    prev = prev.replace(')', '').strip()
+                    return f'color: {"green" if real == prev else "red"}'
+                return ''
+            
+            # Criar tabela dinamicamente
+            df_table = df_final.pivot_table(
+                index='Município',
+                columns='Ano',
+                values=['y_real', 'y_previsto'],
+                aggfunc='first'
+            )
+            
+            # Formatando os valores
+            formatted_df = pd.DataFrame()
+            for ano in [f"20{a}" for a in ANOS]:
+                if ('y_real', ano) in df_table.columns:
+                    formatted_df[ano] = df_table[('y_previsto', ano)].astype(str) + " (" + df_table[('y_real', ano)].astype(str) + ")"
+            
+            st.dataframe(
+                formatted_df.style.applymap(color_text),
+                use_container_width=True,
+                height=min(400, 55 * len(municipios) + 3)
+            )
 
-            # Merge com o dataframe de mesorregião para obter o nome da mesorregião
-            assertividade_mesorregiao = assertividade_mesorregiao.merge(df_meso[["v21", "Mesorregião"]], on="v21", how="left")
-
-            # Filtrar as mesorregiões selecionadas
-            assertividade_mesorregiao = assertividade_mesorregiao[assertividade_mesorregiao["Mesorregião"].isin(mesoregiao_selecionadas)]
-
-            # Adicionar ao resultado
-            assertividade_data.append(assertividade_mesorregiao)
-
-    if assertividade_data:
-        # Concatenar os dados de assertividade de todos os anos
-        assertividade_df = pd.concat(assertividade_data)
+with tab3:
+    # Seção de assertividade
+    df_meso = mesoregiao()
+    todas_meso = st.checkbox("Todas Mesorregiões", value=True)
+    meso_options = df_meso["Mesorregião"].unique()
+    selected_meso = st.multiselect("Mesorregiões:", meso_options, 
+                                 disabled=todas_meso,
+                                 default=meso_options if todas_meso else [])
     
-        # Selecionar as colunas necessárias
-        assertividade_df = assertividade_df[["Mesorregião", "Ano", "acerto"]]
-        assertividade_df.columns = ["Mesorregião", "Ano", "Acerto (%)"]
-    
-        # Definir a paleta Paired (12-class)
-        paired_colors = [
-            "#a6cee3", "#1f78b4", "#b2df8a", "#33a02c",
-            "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00",
-            "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"
-        ]
-    
-        # Plotar gráfico de assertividade por mesorregião
-        fig = px.line(
-            assertividade_df, 
-            x="Ano", 
-            y="Acerto (%)", 
-            color="Mesorregião", 
-            labels={"Acerto (%)": "Assertividade (%)", "Mesorregião": "Mesorregião"},
-            title="Assertividade do Modelo por Mesorregião ao Longo dos Anos",
-            color_discrete_sequence=paired_colors
-        )
-    
-        fig.update_layout(xaxis_title="Ano", yaxis_title="Assertividade (%)", title_x=0.5)
-        st.plotly_chart(fig)
-
-
-    else:
-        st.warning("Nenhuma assertividade disponível para as mesorregiões selecionadas.")
-else:
-    st.warning("Selecione pelo menos uma mesorregião para comparação.")
+    if selected_meso:
+        dados_acertos = []
+        for ano in ANOS:
+            df = load_data(ano)
+            if df is not None:
+                df["acerto"] = (df["y_real"] == df["y_previsto"]).astype(int)
+                df_meso_filtered = df_meso[df_meso["Mesorregião"].isin(selected_meso)]
+                merged = df.merge(df_meso_filtered, on="v21")
+                if not merged.empty:
+                    merged["Ano"] = f"20{ano}"
+                    dados_acertos.append(merged)
+        
+        if dados_acertos:
+            df_acertos = pd.concat(dados_acertos)
+            create_metrics(df_acertos, selected_meso)
+            
+            fig = px.line(df_acertos.groupby(['Mesorregião', 'Ano'])['acerto']
+                        .mean().reset_index(), 
+                        x="Ano", y="acerto", color="Mesorregião",
+                        title="Assertividade por Mesorregião",
+                        labels={'acerto': 'Taxa de Acerto', 'Ano': ''})
+            fig.update_yaxes(tickformat=".0%")
+            st.plotly_chart(fig, use_container_width=True)
