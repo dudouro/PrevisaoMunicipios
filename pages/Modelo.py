@@ -256,7 +256,7 @@ with tab3:
             st.image(
                 arvores[ano_arvore],
                 caption=f"Árvore de Decisão - 20{ano_arvore}",
-                use_column_width=True
+                use_container_width=True
             )
             st.caption(f"Resolução original: {Image.open(arvores[ano_arvore]).size}")
             
