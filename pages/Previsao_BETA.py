@@ -112,66 +112,59 @@ def main():
     Simule diferentes cenários financeiros utilizando nosso modelo preditivo.
     """)
 
-    # Sidebar - Entrada de dados
-    with st.sidebar:
-        st.header("📥 Dados de Entrada")
-        st.markdown("Informe os valores contábeis do município:")
-        
-        grupos = {
-            "Receitas": [
-                "receita_total", "receita_propria",
-                "receita_transferencias", "populacao",
-                "receita_corrente_liquida"
-            ],
-            "Despesas": [
-                "despesa_total", "despesa_com_pessoal",
-                "gastos_operacionais"
-            ],
-            "Ativos": [
-                "disponibilidade_caixa", "ativo_circulante"
-            ],
-            "Passivos": [
-                "obrigacoes_curto_prazo", "divida_consolidada",
-                "operacoes_credito"
-            ]
-        }
+    # Divisão das colunas
+    col1, col2 = st.columns([1, 2])
 
-        dados = {}
-        for grupo, variaveis in grupos.items():
-            with st.expander(grupo):
-                for var in variaveis:
-                    label = var.replace("_", " ").title()
-                    help_text = DESCRICOES_VARIAVEIS.get(var, "Informe o valor desta conta contábil")
-                    dados[var] = st.number_input(
-                        label=label,
-                        min_value=0.0,
-                        value=0.0,
-                        step=1000.0,
-                        format="%.2f",
-                        help=help_text
-                    )
-
-    # Cálculo de indicadores
-    try:
-        indicadores = calcular_indicadores(dados)
-    except Exception as e:
-        st.error(f"Erro no cálculo de indicadores: {str(e)}")
-        st.stop()
-
-    # Seção de Resultados
-    st.header("📈 Resultados da Simulação")
-    
-    col1, col2 = st.columns([2, 1])
-    
     with col1:
-        # Exibição de indicadores com alertas
-        exibir_indicadores(indicadores)
-        
-    with col2:
-        # Comparação com referência
+        # Seção de inputs
+        with st.container(border=True):
+            st.markdown("### 💰 Informe os valores contábeis")
+            grupos = {
+                "📈 Receitas": [
+                    "receita_total", "receita_propria",
+                    "receita_transferencias", "populacao",
+                    "receita_corrente_liquida"
+                ],
+                "📉 Despesas": [
+                    "despesa_total", "despesa_com_pessoal",
+                    "gastos_operacionais"
+                ],
+                "💼 Ativos": [
+                    "disponibilidade_caixa", "ativo_circulante"
+                ],
+                "📋 Passivos": [
+                    "obrigacoes_curto_prazo", "divida_consolidada",
+                    "operacoes_credito"
+                ]
+            }
+
+            dados = {}
+            for grupo, variaveis in grupos.items():
+                with st.expander(grupo):
+                    for var in variaveis:
+                        label = var.replace("_", " ").title()
+                        help_text = DESCRICOES_VARIAVEIS.get(var, "Informe o valor desta conta contábil")
+                        dados[var] = st.number_input(
+                            label=label,
+                            min_value=0.0,
+                            value=0.0,
+                            step=1000.0,
+                            format="%.2f",
+                            help=help_text,
+                            key=f"input_{var}"
+                        )
+
+        # Cálculo de indicadores
+        try:
+            indicadores = calcular_indicadores(dados)
+        except Exception as e:
+            st.error(f"Erro no cálculo de indicadores: {str(e)}")
+            st.stop()
+
+        # Seção de referência e previsão
         exibir_referencia(df_referencia, indicadores)
         
-        # Previsão do modelo
+        # Botão de previsão
         if st.button("🎯 Executar Previsão", use_container_width=True):
             modelo = carregar_modelo()
             if modelo:
@@ -181,6 +174,13 @@ def main():
                         st.success(f"**Resultado da Previsão:** {previsao[0]}")
                 except Exception as e:
                     st.error(f"Erro na previsão: {str(e)}")
+
+    with col2:
+        # Exibição de indicadores
+        if 'indicadores' in locals():
+            exibir_indicadores(indicadores)
+        else:
+            st.warning("Preencha os dados na coluna esquerda para ver os indicadores")
 
 def calcular_indicadores(dados):
     """Calcula todos os indicadores financeiros com nomes padronizados"""
@@ -214,46 +214,92 @@ def calcular_indicadores(dados):
     return indicadores
 
 def exibir_indicadores(indicadores):
-    """Exibe os indicadores com formatação e alertas"""
+    """Exibe os indicadores com formatação, alertas e fórmulas de cálculo"""
     REGRAS_ALERTAS = {
         "receita_per_capita": {
-            "mensagem": lambda v: "🔴 Baixa receita per capita!" if v < 1000 else "🟢 Receita per capita adequada."
+            "mensagem": lambda v: "🔴 Baixa receita per capita!" if v < 1000 else "🟢 Receita per capita adequada.",
+            "formula": "Receita Total / População"
         },
         "representatividade_da_receita_propria": {
-            "mensagem": lambda v: "🔴 Baixa dependência de receita própria!" if v < 0.2 else "🟢 Boa representatividade da receita própria."
+            "mensagem": lambda v: "🔴 Baixa dependência de receita própria!" if v < 0.2 else "🟢 Boa representatividade da receita própria.",
+            "formula": "Receita Própria / Receita Total"
         },
         "participacao_das_receitas_de_transferencias": {
-            "mensagem": lambda v: "🟡 Alta dependência de transferências." if v > 0.5 else "🟢 Nível equilibrado de transferências."
+            "mensagem": lambda v: "🟡 Alta dependência de transferências." if v > 0.5 else "🟢 Nível equilibrado de transferências.",
+            "formula": "Receitas de Transferências / Receita Total"
         },
         "participacao_dos_gastos_operacionais": {
-            "mensagem": lambda v: "🟡 Gastos operacionais elevados." if v > 0.6 else "🟢 Gastos operacionais controlados."
+            "mensagem": lambda v: "🟡 Gastos operacionais elevados." if v > 0.6 else "🟢 Gastos operacionais controlados.",
+            "formula": "Gastos Operacionais / Despesa Total"
         },
         "cobertura_de_despesas": {
-            "mensagem": lambda v: "🔴 Receita insuficiente para cobrir despesas!" if v < 1 else "🟢 Cobertura adequada das despesas."
+            "mensagem": lambda v: "🔴 Receita insuficiente para cobrir despesas!" if v < 1 else "🟢 Cobertura adequada das despesas.",
+            "formula": "Receita Total / Despesa Total"
         },
         "recursos_para_cobertura_de_queda_de_arrecadacao": {
-            "mensagem": lambda v: "🔴 Pouca reserva de caixa!" if v < 0.05 else "🟢 Reserva de caixa satisfatória."
+            "mensagem": lambda v: "🔴 Pouca reserva de caixa!" if v < 0.05 else "🟢 Reserva de caixa satisfatória.",
+            "formula": "Disponibilidade de Caixa / Receita Total"
         },
         "recursos_para_cobertura_de_obrigacoes_de_curto_prazo": {
-            "mensagem": lambda v: "🔴 Risco de não cumprir obrigações imediatas!" if v < 1 else "🟢 Cobertura adequada das obrigações."
+            "mensagem": lambda v: "🔴 Risco de não cumprir obrigações imediatas!" if v < 1 else "🟢 Cobertura adequada das obrigações.",
+            "formula": "Disponibilidade de Caixa / Obrigações de Curto Prazo"
         },
         "comprometimento_das_receitas_correntes_com_as_obrigacoes_de_curto_prazo": {
-            "mensagem": lambda v: "🔴 Alto comprometimento com curto prazo!" if v > 0.5 else "🟢 Comprometimento controlado."
+            "mensagem": lambda v: "🔴 Alto comprometimento com curto prazo!" if v > 0.5 else "🟢 Comprometimento controlado.",
+            "formula": "Obrigações de Curto Prazo / Receita Corrente Líquida"
         },
         "divida_per_capita": {
-            "mensagem": lambda v: "🟡 Dívida per capita moderada." if v > 1000 else "🟢 Dívida per capita sob controle."
+            "mensagem": lambda v: "🟡 Dívida per capita moderada." if v > 1000 else "🟢 Dívida per capita sob controle.",
+            "formula": "Dívida Consolidada / População"
         },
         "comprometimento_das_receitas_correntes_com_o_endividamento": {
-            "mensagem": lambda v: "🔴 Endividamento elevado!" if v > 1 else "🟢 Endividamento aceitável."
+            "mensagem": lambda v: "🔴 Endividamento elevado!" if v > 1 else "🟢 Endividamento aceitável.",
+            "formula": "Dívida Consolidada / Receita Corrente Líquida"
+        },
+        "despesa_com_pessoal": {
+            "mensagem": lambda v: "🔴 Muito alta!" if v > 0.6 * indicadores.get("receita_corrente_liquida", 1) else "🟢 Dentro do limite",
+            "formula": "Valor absoluto",
+            "fiscal": lambda v, rcl: [
+                ("🚨 Violação LRF: >60% RCL", "red") if v/rcl >= 0.6 else None,
+                ("⚠️ Alerta LRF: ≥54% RCL", "orange") if 0.54 <= v/rcl < 0.6 else None
+            ]
+        },
+        "divida_consolidada": {
+            "mensagem": lambda v: "🟡 Elevada" if v > indicadores.get("receita_corrente_liquida", 1) else "🟢 Controlada",
+            "formula": "Valor absoluto",
+            "fiscal": lambda v, rcl: [
+                ("🚨 Violação LRF: >1.2x RCL", "red") if v/rcl > 1.2 else None
+            ]
+        },
+        "operacoes_credito": {
+            "mensagem": lambda v: "🟡 Operações de crédito elevadas." if v > 0.3 * indicadores.get("receita_corrente_liquida", 1) else "🟢 Operações de crédito controladas.",
+            "formula": "Valor absoluto das operações de crédito"
         },
         "liquidez_relativa": {
-            "mensagem": lambda v: "🔴 Baixa liquidez relativa!" if v > 1 else "🟢 Liquidez adequada."
+            "mensagem": lambda v: "🔴 Baixa liquidez relativa!" if v > 1 else "🟢 Liquidez adequada.",
+            "formula": "Obrigações de Curto Prazo / Disponibilidade de Caixa"
         },
         "indicador_de_liquidez": {
-            "mensagem": lambda v: "🔴 Ativo circulante insuficiente!" if v < 1 else "🟢 Boa liquidez."
+            "mensagem": lambda v: "🟡 Alta liquidez" if v > 1 else "🔴 Baixa liquidez",
+            "formula": "Ativo Circulante / Passivo",
+            "fiscal": lambda v, _: [
+                ("⚠️ CAPAG: Liquidez acima do ideal", "orange") if v > 1 else None
+            ]
         },
         "endividamento": {
-            "mensagem": lambda v: "🔴 Alto nível de endividamento!" if v > 1 else "🟢 Endividamento sob controle."
+            "mensagem": lambda v: "🔴 Muito elevado" if v > 1.6 else "⚠️ Elevado" if v > 1.2 else "🟢 Controlado",
+            "formula": "(Dívida + Créditos)/RCL",
+            "fiscal": lambda v, rcl: [
+                ("🚨 CAPAG Categoria D", "red") if v > 1.6 else None,
+                ("⚠️ CAPAG Categoria C", "orange") if 1.2 < v <= 1.6 else None
+            ]
+        },
+        "poupanca_corrente": {
+            "mensagem": lambda v: "🔴 Déficit" if v < 0 else "🟢 Superávit",
+            "formula": "Receita - Despesa",
+            "fiscal": lambda v, _: [
+                ("⚠️ CAPAG: Déficit operacional", "orange") if v < 0 else None
+            ]
         }
     }
     
@@ -264,9 +310,30 @@ def exibir_indicadores(indicadores):
             cols[1].markdown(f"`{valor:.2f}`")
             
             if nome in REGRAS_ALERTAS:
-                alerta = REGRAS_ALERTAS[nome]["mensagem"](valor)
+                regras = REGRAS_ALERTAS[nome]
+                alerta = regras["mensagem"](valor)
+                formula = regras["formula"]
+                
+                # Alerta principal
                 cor = 'red' if '🔴' in alerta else 'orange' if '🟡' in alerta else 'green'
                 cols[2].markdown(f"<span style='color:{cor}'>{alerta}</span>", unsafe_allow_html=True)
+                
+                # Fórmula e alertas fiscais
+                st.markdown(f"<div style='font-size:12px; color:gray;'>Fórmula: {formula}</div>", 
+                           unsafe_allow_html=True)
+                
+                # Verificações fiscais
+                if "fiscal" in regras:
+                    rcl = indicadores.get("receita_corrente_liquida", 1)
+                    if rcl == 0:
+                        st.markdown("<div style='font-size:12px; color:red;'>⚠️ RCL zero inválida para cálculos</div>", 
+                                   unsafe_allow_html=True)
+                    else:
+                        fiscal_messages = regras["fiscal"](valor, rcl)
+                        for msg in fiscal_messages:
+                            if msg:
+                                st.markdown(f"<div style='font-size:12px; color:{msg[1]};'>{msg[0]}</div>", 
+                                           unsafe_allow_html=True)
             st.divider()
 
 def exibir_referencia(df_referencia, indicadores):
