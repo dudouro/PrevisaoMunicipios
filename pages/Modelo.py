@@ -82,12 +82,12 @@ with tab1:
             metricas = sorted({col.split('_')[0] for col in df_classificacao.columns if '_' in col})
             # Verifica se 'precision' existe na lista, senão usa o primeiro item
             default_idx = metricas.index('precision') if 'precision' in metricas else 0
-            metrica = st.selectbox("Selecione a Métrica:", metricas, index=default_idx)
+            metrica = st.selectbox("Selecione a Classe:", metricas, index=default_idx)
         with col2:
             classes = sorted({col.split('_')[1] for col in df_classificacao.columns if '_' in col})
             # Verifica se existe a classe 'A' ou usa a primeira disponível
             default_cls = 'A' if 'A' in classes else classes[0] if classes else None
-            classe = st.selectbox("Selecione a Classe:", classes, index=classes.index(default_cls) if default_cls else 0)
+            classe = st.selectbox("Selecione a Métrica:", classes, index=classes.index(default_cls) if default_cls else 0)
         with col3:
             st.metric("Total de Anos Analisados", len(ANOS))
 
@@ -99,7 +99,7 @@ with tab1:
             fig = px.line(
                 dados_plot, x="Ano", y=coluna_alvo, color="Janela",
                 markers=True, line_shape="spline", 
-                title=f"Evolução da {metrica.capitalize()} - Classe {classe}",
+                title=f"Evolução da {metrica.capitalize()} - Métrica {classe}",
                 labels={coluna_alvo: f"{metrica} (%)", "Ano": ""},
                 color_discrete_sequence=CORES
             )
@@ -256,7 +256,7 @@ with tab3:
             st.image(
                 arvores[ano_arvore],
                 caption=f"Árvore de Decisão - 20{ano_arvore}",
-                use_container_width=True
+                use_column_width=True
             )
             st.caption(f"Resolução original: {Image.open(arvores[ano_arvore]).size}")
             
