@@ -8,7 +8,7 @@ import geopandas as gpd
 from extra import variaveis, mesoregiao
 
 # Configuração inicial da página
-st.set_page_config(page_title="Previsão Financeira Municipal", layout="wide", page_icon="🏙️")
+st.set_page_config(page_title="Previsão Financeira Municipal", layout="wide", page_icon ="🏙️")
 
 # Constantes
 ANOS = [17, 18, 19, 20, 21, 22]
@@ -147,7 +147,7 @@ def create_metrics(df, municipios):
     """Cria métricas de resumo"""
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Municípios Selecionados", len(municipios))
+        st.metric("Mesorregiões Selecionados", len(municipios))
     with col2:
         st.metric("Média Acertos", f"{df['acerto'].mean():.1%}")
     with col3:
