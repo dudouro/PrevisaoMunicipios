@@ -351,7 +351,7 @@ with tab3:
             try:
                 image = Image.open(img_path); col1_img, col2_img, col3_img = st.columns([1, 4, 1])
                 with col2_img:
-                    st.image(image, caption=f"Árvore de Decisão - 20{ano_arvore_selecionado}", use_column_width=True)
+                    st.image(image, caption=f"Árvore de Decisão - 20{ano_arvore_selecionado}", use_container_width=True)
                     st.caption(f"Arquivo: ...{os.sep}{os.path.basename(os.path.dirname(img_path))}{os.sep}{os.path.basename(img_path)}")
                     try:
                         with open(img_path, "rb") as file: st.download_button(label="Baixar imagem da árvore", data=file, file_name=f"arvore_20{ano_arvore_selecionado}.png", mime="image/png")
