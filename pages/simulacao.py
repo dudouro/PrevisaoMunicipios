@@ -34,16 +34,14 @@ DESCRICOES_VARIAVEIS = {
 
 ### ADIÇÃO ###
 def classificar_populacao(pop):
-    if pop <= 5000:
-        return "Pequeno I"
-    elif pop <= 20000:
-        return "Pequeno II"
+    if pop <= 20000:
+        return "Pequeno Porte I"
     elif pop <= 50000:
-        return "Médio I"
+        return "Pequeno Porte II"
     elif pop <= 100000:
-        return "Médio II"
-    elif pop <= 500000:
-        return "Grande"
+        return "Médio Porte"
+    elif pop <= 900000:
+        return "Grande Porte"
     else:
         return "Metrópole"
 
@@ -501,9 +499,145 @@ def exibir_indicadores(indicadores):
                                 st.markdown(f"<div style='font-size:small; color:{msg_color}; margin-left:10px;'><b>{msg_text}</b></div>", 
                                            unsafe_allow_html=True)
             st.divider()
+def formatar_numero(valor, prefixo='R$'):
+    if pd.isna(valor) or valor == 0: # Modificado para retornar '-' para zero também, como no seu exemplo
+        return "-"
+    # Garantir que 'valor' seja numérico para formatação.
+    # Se for string, tentar converter, mas idealmente já deve ser numérico.
+    try:
+        val_num = float(valor)
+    except (ValueError, TypeError):
+        return str(valor) # Retorna como string se não puder ser convertido
 
+    return f"{prefixo} {val_num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def exibir_referencia(df_referencia_original, indicadores, porte_simulado):
+    ano_referencia = 2022 # Conforme seu código original
+
+    # Função auxiliar interna para renderizar um expander de comparação
+    def _renderizar_expander_comparativo(df_para_comparar, titulo_do_expander, tipo_comparacao_msg):
+        with st.expander(titulo_do_expander):
+            if df_para_comparar.empty:
+                st.write(f"Não há dados de referência para a comparação {tipo_comparacao_msg}.")
+                return
+
+            # Considerar apenas colunas que são chaves nos indicadores
+            # e existem no df_para_comparar para cálculo da média.
+            colunas_para_media = [
+                col for col in indicadores.keys()
+                if col in df_para_comparar.columns
+            ]
+            
+            df_numerico_ref = df_para_comparar[colunas_para_media].select_dtypes(include=np.number)
+
+            if df_numerico_ref.empty:
+                st.write(f"Não há dados numéricos nos municípios de referência para calcular a média {tipo_comparacao_msg}.")
+                # Ainda assim, exibimos os valores simulados sem delta
+                media_referencia_calculada = pd.Series(dtype=float)
+            else:
+                media_referencia_calculada = df_numerico_ref.mean()
+                if media_referencia_calculada.empty and not df_numerico_ref.empty:
+                    st.warning(f"Cálculo da média de referência {tipo_comparacao_msg} resultou em valores vazios, embora dados numéricos existam.")
+                    media_referencia_calculada = pd.Series(dtype=float)
+
+            num_indicadores = len(indicadores)
+            cols_per_row = 3
+            indicadores_keys = list(indicadores.keys())
+
+            for i in range(0, num_indicadores, cols_per_row):
+                cols = st.columns(cols_per_row)
+                for j in range(cols_per_row):
+                    if i + j < num_indicadores:
+                        key_idx = i + j
+                        k = indicadores_keys[key_idx] # Nome do indicador (ex: "receita_per_capita")
+                        v_simulado = indicadores[k]  # Valor simulado para este indicador
+
+                        # Formatar valor principal
+                        valor_formatado = f"{v_simulado:.2f}"
+                        # Ajuste para nomes de indicadores com espaços, como "Despesa com pessoal"
+                        # A lógica de formatação original pode não capturar esses se não tiverem "receita", "despesa", etc.
+                        is_currency_like = any(term in k.lower() for term in ['receita', 'despesa', 'divida', 'caixa'])
+                        if k in ["Despesa com pessoal", "Dívida Consolidada", "Operações de crédito"]: # Adicionar outros se necessário
+                            is_currency_like = True
+                        
+                        if any(term in k for term in ["representatividade", "participacao", "comprometimento"]) or "endividamento" == k:
+                            valor_formatado = f"{v_simulado:.2%}"
+                        elif isinstance(v_simulado, (int, float)) and not ("per_capita" in k or "liquidez" in k):
+                             valor_formatado = formatar_numero(v_simulado, prefixo='R$' if is_currency_like else '')
+                        elif isinstance(v_simulado, (int, float)) and ("per_capita" in k or "liquidez" in k): # Para per capitas e liquidez sem R$
+                             valor_formatado = formatar_numero(v_simulado, prefixo='')
+
+
+                        delta_texto = "N/A"
+                        delta_color = "normal"
+
+                        # k deve corresponder ao nome da coluna no df_referencia
+                        if k in media_referencia_calculada and not pd.isna(media_referencia_calculada[k]):
+                            ref_val = media_referencia_calculada[k]
+                            if ref_val != 0:
+                                diff = ((v_simulado - ref_val) / abs(ref_val)) * 100
+                                delta_texto = f"{diff:.1f}% vs Média {tipo_comparacao_msg}"
+                                if diff > 5: delta_color = "normal"
+                                elif diff < -5: delta_color = "inverse"
+                                else: delta_color = "off"
+                            else:
+                                delta_texto = f"Média {tipo_comparacao_msg} é 0"
+                                delta_color = "off"
+                        elif k in media_referencia_calculada and pd.isna(media_referencia_calculada[k]):
+                            delta_texto = f"Média {tipo_comparacao_msg} N/A"
+                            delta_color = "off"
+                        else:
+                            # Este caso ocorre se o indicador 'k' não está entre as colunas numéricas
+                            # do df_para_comparar ou não estava em 'colunas_para_media'.
+                            delta_texto = f"Não na Média {tipo_comparacao_msg}"
+                            delta_color = "off"
+                        
+                        # Usar o nome original do indicador (k) para o label, formatando-o
+                        label_metrica = k.replace("_", " ").title()
+
+                        cols[j].metric(
+                            label=label_metrica,
+                            value=valor_formatado,
+                            delta=delta_texto,
+                            delta_color=delta_color
+                        )
+    # --- Fim da função auxiliar interna ---
+
+    if df_referencia_original is None or df_referencia_original.empty:
+        st.info(f"Não há dados de referência de {ano_referencia} carregados para realizar comparações.")
+        return
+
+    # 1. Comparação com municípios de mesmo porte
+    mostrar_comparacao_porte = False
+    if 'Classificação do Município' in df_referencia_original.columns:
+        if porte_simulado != "Não classificado" and porte_simulado and str(porte_simulado).strip():
+            # Usar .loc para evitar SettingWithCopyWarning e garantir que é uma cópia
+            df_filtrado_por_porte = df_referencia_original.loc[
+                df_referencia_original["Classificação do Município"] == porte_simulado
+            ].copy()
+
+            if not df_filtrado_por_porte.empty:
+                num_munic_porte = len(df_filtrado_por_porte)
+                titulo_porte = f"📊 Comparação com Média {ano_referencia} (Porte: {porte_simulado} - {num_munic_porte} munic.)"
+                _renderizar_expander_comparativo(df_filtrado_por_porte, titulo_porte, f"Porte {porte_simulado}")
+                mostrar_comparacao_porte = True
+            else:
+                st.info(f"Não foram encontrados municípios de porte '{porte_simulado}' nos dados de referência de {ano_referencia} para comparação específica por porte. A comparação geral será mostrada abaixo.")
+        elif porte_simulado == "Não classificado" or not porte_simulado or not str(porte_simulado).strip():
+            st.info(f"População não informada ou porte não classificado para simulação. A comparação específica por porte não será exibida. A comparação geral será mostrada abaixo.")
+    
+    elif porte_simulado != "Não classificado" and porte_simulado and str(porte_simulado).strip():
+        # Este caso é quando a coluna 'Classificação do Município' não existe, mas um porte foi simulado.
+        st.warning(f"Coluna 'Classificação do Município' não encontrada nos dados de referência de {ano_referencia}. Não é possível comparar por porte. A comparação geral será mostrada abaixo.")
+
+    # 2. Comparação com TODOS os municípios (Média Geral)
+    num_munic_total = len(df_referencia_original)
+    titulo_geral = f"🌍 Comparação com Média {ano_referencia} (Todas as Cidades - {num_munic_total} munic.)"
+    _renderizar_expander_comparativo(df_referencia_original, titulo_geral, "Geral")
+    
 ### ALTERAÇÃO: Adicionar porte_simulado como parâmetro ###
-def exibir_referencia(df_referencia, indicadores, porte_simulado):
+def exibir_referencia2(df_referencia, indicadores, porte_simulado):
     # Título do expander dinâmico
     titulo_expander = "🔍 Comparação com Média 2022"
     df_comparacao = df_referencia # Por padrão, usa todos os dados
