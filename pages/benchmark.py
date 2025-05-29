@@ -283,6 +283,13 @@ tab_receitas, tab_mapa  = st.tabs(["📈 Comparativo de Receitas Municipais",
 ])
 # --- Tab 2: Comparativo de Receitas Municipais ---
 with tab_receitas:
+    st.title("📊 Comparativo Municipal e Regional 🗺️")
+
+    df_benchmark_all = load_benchmark_data(ANOS_INT_BENCHMARK)
+    df_mesoregiao_geral = load_mesoregiao_info()
+    gdf_geojson = load_geojson_map_data(GEOJSON_PATH)
+    df_revenues_all = load_all_revenue_data(REVENUE_FILES_PATTERN)
+
     st.header("Comparativo de Receitas Municipais")
 
     if df_revenues_all.empty:
@@ -290,28 +297,20 @@ with tab_receitas:
     elif df_mesoregiao_geral.empty:
         st.error("Não foi possível carregar informações dos municípios (`mesoregiao`). A funcionalidade de comparação de receitas pode estar limitada.")
     else:
-        # Merge dos dados de receita com os nomes dos municípios
-        # A coluna de ID em df_revenues_all é 'IBGE'
-        # A coluna de ID em df_mesoregiao_geral é 'id' e nomes em 'Municípios'
         if 'id' not in df_mesoregiao_geral.columns or 'Municípios' not in df_mesoregiao_geral.columns:
             st.error("Dados de mesoregião incompletos (faltam 'id' ou 'Municípios'). Não é possível associar nomes aos municípios para as receitas.")
-            df_revenues_merged_with_names = pd.DataFrame() # Dataframe vazio para evitar erros
+            df_revenues_merged_with_names = pd.DataFrame()
         else:
-            # Renomear 'id' para 'IBGE' e 'Municípios' para 'Nome_Municipio' em uma cópia para o merge
             df_meso_for_revenue = df_mesoregiao_geral[['id', 'Municípios']].copy()
             df_meso_for_revenue.rename(columns={'id': 'IBGE', 'Municípios': 'Nome_Municipio'}, inplace=True)
-            
-            # Assegurar que IBGE seja string em ambos antes do merge
             df_revenues_all['IBGE'] = df_revenues_all['IBGE'].astype(str)
             df_meso_for_revenue['IBGE'] = df_meso_for_revenue['IBGE'].astype(str)
-
             df_revenues_merged_with_names = pd.merge(
                 df_revenues_all,
                 df_meso_for_revenue,
                 on="IBGE",
                 how="left"
             )
-            # Lidar com municípios que não foram encontrados no arquivo de municípios
             df_revenues_merged_with_names['Nome_Municipio'].fillna(df_revenues_merged_with_names['IBGE'], inplace=True)
 
         if df_revenues_merged_with_names.empty:
@@ -325,86 +324,126 @@ with tab_receitas:
                     st.warning("Nenhum município disponível para seleção na aba de receitas.")
                     selected_municipios_receita = []
                 else:
-                    default_selection = municipios_disponiveis_receita[:2] if len(municipios_disponiveis_receita) >= 2 else municipios_disponiveis_receita
+                    default_selection_municipios = municipios_disponiveis_receita[:2] if len(municipios_disponiveis_receita) >= 2 else municipios_disponiveis_receita
                     selected_municipios_receita = st.multiselect(
                         "Selecione os Municípios para Comparar Receitas:",
                         options=municipios_disponiveis_receita,
-                        default=default_selection,
+                        default=default_selection_municipios,
                         key='municipios_receita'
                     )
 
-            available_revenue_types = [col for col in df_revenues_merged_with_names.columns if col not in ['IBGE', 'Ano', 'Nome_Municipio']]
+            available_revenue_types = sorted([col for col in df_revenues_merged_with_names.columns if col not in ['IBGE', 'Ano', 'Nome_Municipio']])
             
             with col2_t2:
                 if not available_revenue_types:
                     st.warning("Nenhum tipo de receita disponível para seleção.")
-                    selected_revenue_type = None
+                    selected_revenue_types = []
                 else:
-                    selected_revenue_type = st.selectbox(
-                        "Selecione o Tipo de Receita:",
+                    default_selection_revenue = available_revenue_types[:1] if available_revenue_types else []
+                    selected_revenue_types = st.multiselect(
+                        "Selecione o(s) Tipo(s) de Receita:",
                         options=available_revenue_types,
-                        index=0, # Seleciona o primeiro por padrão
-                        key='revenue_type_receita'
+                        default=default_selection_revenue,
+                        key='revenue_types_receita'
                     )
 
             if not selected_municipios_receita:
                 st.info("Por favor, selecione pelo menos um município para visualizar os gráficos de receita.")
-            elif not selected_revenue_type:
-                st.info("Por favor, selecione um tipo de receita.")
+            elif not selected_revenue_types:
+                st.info("Por favor, selecione pelo menos um tipo de receita.")
             else:
-                df_filtered_receita = df_revenues_merged_with_names[
-                    (df_revenues_merged_with_names['Nome_Municipio'].isin(selected_municipios_receita))
-                ]
+                df_filtered_by_municipio = df_revenues_merged_with_names[
+                    df_revenues_merged_with_names['Nome_Municipio'].isin(selected_municipios_receita)
+                ].copy()
 
-                if df_filtered_receita.empty or selected_revenue_type not in df_filtered_receita.columns:
-                    st.warning(f"Nenhum dado de receita encontrado para os municípios selecionados e o tipo de receita '{selected_revenue_type}'.")
+                cols_to_melt = ['Ano', 'Nome_Municipio'] + selected_revenue_types
+                df_subset_for_melt = df_filtered_by_municipio[cols_to_melt]
+
+                df_melted_receita = pd.melt(
+                    df_subset_for_melt,
+                    id_vars=['Ano', 'Nome_Municipio'],
+                    value_vars=selected_revenue_types,
+                    var_name='Tipo_Receita',
+                    value_name='Valor_Arrecadado'
+                )
+                
+                if df_melted_receita.empty:
+                    st.warning(f"Nenhum dado de receita encontrado para os municípios e tipos de receita selecionados.")
                 else:
-                    st.subheader(f"Comparativo de Arrecadação: {selected_revenue_type}")
+                    revenue_types_str = ', '.join(selected_revenue_types)
+                    st.subheader(f"Comparativo de Arrecadação: {revenue_types_str}")
 
                     # Gráfico de Linhas
                     try:
                         fig_line_receita = px.line(
-                            df_filtered_receita, x='Ano', y=selected_revenue_type, color='Nome_Municipio',
-                            title=f"Evolução Anual da Receita de {selected_revenue_type}", markers=True,
-                            labels={'Ano': 'Ano', selected_revenue_type: f'Valor Arrecadado ({selected_revenue_type})', 'Nome_Municipio': 'Município'}
+                            df_melted_receita, x='Ano', y='Valor_Arrecadado',
+                            color='Nome_Municipio',
+                            line_dash='Tipo_Receita',
+                            title=f"Evolução Anual das Receitas Selecionadas",
+                            markers=True,
+                            labels={'Ano': 'Ano', 'Valor_Arrecadado': 'Valor Arrecadado',
+                                    'Nome_Municipio': 'Município', 'Tipo_Receita': 'Tipo de Receita'}
                         )
-                        fig_line_receita.update_layout(legend_title_text='Município')
+                        fig_line_receita.update_layout(legend_title_text='Legenda')
                         st.plotly_chart(fig_line_receita, use_container_width=True)
                     except Exception as e:
-                        st.error(f"Erro ao gerar o gráfico de linhas de receita: {e}")
+                        st.error(f"Erro ao gerar o gráfico de linhas de receita: {e}\n{traceback.format_exc()}")
 
-                    # Gráfico de Barras Agrupado por Ano
-                    st.subheader(f"Comparativo Detalhado por Ano: {selected_revenue_type}")
+                    # Gráfico de Barras Empilhado por Tipo de Receita, facetado por Município
+                    st.subheader(f"Composição Detalhada da Receita por Ano e Município") ## ALTERAÇÃO ##: Título
                     try:
+                        num_municipios_selecionados = len(selected_municipios_receita)
+                        facet_col_wrap_val = 0 # Auto-wrap by default
+                        if num_municipios_selecionados > 1:
+                            if num_municipios_selecionados <= 3: # If 1, 2 or 3 municipalities, show them in one row
+                                facet_col_wrap_val = num_municipios_selecionados
+                            elif num_municipios_selecionados == 4: # If 4, show 2x2
+                                facet_col_wrap_val = 2
+                            else: # For more than 4, maybe 3 per row
+                                facet_col_wrap_val = 3 
+                        
                         fig_bar_receita = px.bar(
-                            df_filtered_receita, x='Ano', y=selected_revenue_type, color='Nome_Municipio',
-                            barmode='group', title=f"Comparativo de {selected_revenue_type} por Ano",
-                            labels={'Ano': 'Ano', selected_revenue_type: f'Valor Arrecadado ({selected_revenue_type})', 'Nome_Municipio': 'Município'}
+                            df_melted_receita, 
+                            x='Ano', 
+                            y='Valor_Arrecadado',
+                            color='Tipo_Receita',      # ## ALTERAÇÃO ##: Cor pelos Tipos de Receita para empilhamento
+                            barmode='stack',           # ## ALTERAÇÃO ##: Barras empilhadas
+                            facet_col='Nome_Municipio',# ## ALTERAÇÃO ##: Um subplot por município
+                            facet_col_wrap=facet_col_wrap_val, # Controla o número de subplots por linha
+                            title=f"Composição da Receita por Ano (Agrupado por Município)", # ## ALTERAÇÃO ##: Título
+                            labels={'Ano': 'Ano', 'Valor_Arrecadado': 'Valor Arrecadado Total', # Y é o total empilhado
+                                    'Nome_Municipio': 'Município', 'Tipo_Receita': 'Tipo de Receita'}
                         )
-                        fig_bar_receita.update_layout(legend_title_text='Município')
+                        # Renomeia os títulos das facetas para apenas o nome do município
+                        fig_bar_receita.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+                        fig_bar_receita.update_layout(legend_title_text='Tipo de Receita') # ## ALTERAÇÃO ##: Legenda
                         st.plotly_chart(fig_bar_receita, use_container_width=True)
                     except Exception as e:
-                        st.error(f"Erro ao gerar o gráfico de barras de receita: {e}")
+                        st.error(f"Erro ao gerar o gráfico de barras de receita: {e}\n{traceback.format_exc()}")
 
                     # Tabela de Dados Filtrados
                     st.subheader("Dados Detalhados de Receita (Filtrados)")
-                    cols_to_display_receita = ['Ano', 'Nome_Municipio', selected_revenue_type] + \
-                                              [c for c in available_revenue_types if c != selected_revenue_type and c in df_filtered_receita.columns]
-                    
-                    format_cols_numeric_receita = [col for col in available_revenue_types if col in df_filtered_receita.columns and pd.api.types.is_numeric_dtype(df_filtered_receita[col])]
+                    cols_to_display_receita = ['Ano', 'Nome_Municipio']
+                    for rt in selected_revenue_types:
+                        if rt in df_filtered_by_municipio.columns:
+                            cols_to_display_receita.append(rt)
+                    cols_to_display_receita = sorted(list(set(cols_to_display_receita)), key=lambda x: (x != 'Ano', x != 'Nome_Municipio', x))
+                    format_cols_numeric_receita = [col for col in selected_revenue_types if col in df_filtered_by_municipio.columns and pd.api.types.is_numeric_dtype(df_filtered_by_municipio[col])]
                     format_dict_receita = {col: '{:,.2f}' for col in format_cols_numeric_receita}
                     
                     try:
                         st.dataframe(
-                            df_filtered_receita[cols_to_display_receita]
+                            df_filtered_by_municipio[cols_to_display_receita]
                             .sort_values(by=['Nome_Municipio', 'Ano'])
                             .style.format(format_dict_receita, na_rep="-"),
                             use_container_width=True
                         )
+                    except KeyError as e:
+                        st.error(f"Erro ao tentar exibir a tabela de dados: Coluna não encontrada - {e}. Verifique se os tipos de receita selecionados existem nos dados.")
+                        st.dataframe(df_filtered_by_municipio.sort_values(by=['Nome_Municipio', 'Ano']), use_container_width=True)
                     except Exception as e:
-                        st.error(f"Erro ao exibir a tabela de dados de receita: {e}")
-                        st.dataframe(df_filtered_receita[cols_to_display_receita].sort_values(by=['Nome_Municipio', 'Ano']), use_container_width=True)
-
+                        st.error(f"Erro ao exibir a tabela de dados de receita: {e}\n{traceback.format_exc()}")
+                        st.dataframe(df_filtered_by_municipio[cols_to_display_receita].sort_values(by=['Nome_Municipio', 'Ano']), use_container_width=True)
 
 # --- Tab 1: Mapa Regional de Variáveis (Benchmark) ---
 with tab_mapa:
