@@ -110,7 +110,7 @@ def create_metrics(df_acertos_tab3, mesoregioes_selecionadas_tab3):
     """Cria métricas de resumo para a Tab 3 (versão original)."""
     # Certifica que df_acertos_tab3 não está vazio e tem as colunas necessárias
     if df_acertos_tab3.empty or 'acerto' not in df_acertos_tab3.columns or 'Ano' not in df_acertos_tab3.columns:
-        st.warning("Dados insuficientes para calcular métricas de assertividade.")
+        st.warning("Dados insuficientes para calcular métricas de acurácia.")
         return
 
     col1, col2, col3 = st.columns(3)
@@ -120,22 +120,52 @@ def create_metrics(df_acertos_tab3, mesoregioes_selecionadas_tab3):
         st.metric("Mesorregiões Analisadas", mesos_nos_dados)
     with col2:
         media_geral = df_acertos_tab3['acerto'].mean()
-        st.metric("Assertividade Média Geral", f"{media_geral:.1%}" if pd.notna(media_geral) else "N/A")
+        st.metric("Acurácia Média Geral", f"{media_geral:.1%}" if pd.notna(media_geral) else "N/A")
     with col3:
         ultimo_ano_disponivel = df_acertos_tab3['Ano'].max()
         if pd.notna(ultimo_ano_disponivel):
             media_ultimo = df_acertos_tab3[df_acertos_tab3['Ano'] == ultimo_ano_disponivel]['acerto'].mean()
-            st.metric(f"Assertividade Média ({ultimo_ano_disponivel})", f"{media_ultimo:.1%}" if pd.notna(media_ultimo) else "N/A")
+            st.metric(f"Acurácia Média ({ultimo_ano_disponivel})", f"{media_ultimo:.1%}" if pd.notna(media_ultimo) else "N/A")
         else:
-            st.metric("Assertividade Último Ano", "N/A")
+            st.metric("Acurácia Último Ano", "N/A")
 
 
-# Função para Mapa (Tab 4 - Mantida da versão anterior)
+# Função para Mapa (Tab 4 - Atualizada com escala fixa)
 def create_map_chart(gdf_merged, year_str):
-    if gdf_merged is None or gdf_merged.empty or 'Acerto (%)' not in gdf_merged.columns: return None
-    fig = px.choropleth_mapbox(gdf_merged, geojson=gdf_merged.geometry, locations=gdf_merged.index, color='Acerto (%)', hover_name='Nome_Mesorregiao', hover_data={'Acerto (%)': ':.1f'}, color_continuous_scale=CORES_MAPA, mapbox_style="carto-positron", center={"lat": -18.5122, "lon": -44.5550}, zoom=5, opacity=0.7, labels={'Acerto (%)':'Assertividade'})
-    fig.update_layout(title=f"Assertividade Média por Mesorregião - {year_str}", margin={"r":0,"t":40,"l":0,"b":0}, coloraxis_colorbar=dict(title="Assertividade (%)", tickvals=np.linspace(gdf_merged['Acerto (%)'].min(), gdf_merged['Acerto (%)'].max(), 5), tickformat=".0f"))
-    fig.update_traces(hovertemplate="<b>%{hovertext}</b><br>Assertividade: %{z:.1f}%<extra></extra>"); return fig
+    if gdf_merged is None or gdf_merged.empty or 'Acerto (%)' not in gdf_merged.columns: 
+        return None
+
+    fig = px.choropleth_mapbox(
+        gdf_merged, 
+        geojson=gdf_merged.geometry, 
+        locations=gdf_merged.index, 
+        color='Acerto (%)', 
+        hover_name='Nome_Mesorregiao', 
+        hover_data={'Acerto (%)': ':.1f'}, 
+        color_continuous_scale=CORES_MAPA, 
+        range_color=(50, 100),  # <- Escala fixa entre 50% e 100%
+        mapbox_style="carto-positron", 
+        center={"lat": -18.5122, "lon": -44.5550}, 
+        zoom=5, 
+        opacity=0.7, 
+        labels={'Acerto (%)':'Acurácia'}
+    )
+
+    fig.update_layout(
+        title=f"Acurácia Média por Mesorregião - {year_str}", 
+        margin={"r":0,"t":40,"l":0,"b":0},
+        coloraxis_colorbar=dict(
+            title="Acurácia (%)", 
+            tickvals=np.linspace(50, 100, 5),  # <- Ticks também fixos
+            tickformat=".0f"
+        )
+    )
+
+    fig.update_traces(
+        hovertemplate="<b>%{hovertext}</b><br>Acurácia: %{z:.1f}%<extra></extra>"
+    )
+
+    return fig
 
 # --- Carregamento Principal e Merge (Mantido da versão anterior) ---
 all_df = load_all_data(ANOS_INT)
@@ -203,8 +233,8 @@ else:
     tab1, tab2, tab3, tab4 = st.tabs([
         "Visão Geral (Distribuição)", # Tab 1 Mantida
         "Análise Municipal",          # Tab 2 Revertida/Adaptada
-        "Análise de Assertividade",   # Tab 3 Revertida/Adaptada
-        "Mapa de Assertividade"       # Tab 4 Mantida
+        "Análise de Acurácia",   # Tab 3 Revertida/Adaptada
+        "Mapa de Acurácia"       # Tab 4 Mantida
     ])
 
     # --- Tab 1: Distribuição (Mantida da versão anterior) ---
@@ -303,7 +333,7 @@ else:
 
     # --- Tab 3: Assertividade (Lógica Revertida/Adaptada) ---
     with tab3:
-        st.subheader("Análise da Assertividade do Modelo por Mesorregião")
+        st.subheader("Análise da Acurácia do Modelo por Mesorregião")
         st.markdown("Avalie a taxa de acerto do modelo ao longo do tempo para as mesorregiões selecionadas.")
 
         # Seleção de Mesorregiões (lógica da versão original)
@@ -332,7 +362,7 @@ else:
                 create_metrics(df_acertos_t3, selected_meso_t3)
 
                 # Gráfico de Assertividade (lógica de groupby da versão original)
-                with st.spinner("Gerando gráfico de assertividade..."):
+                with st.spinner("Gerando gráfico de Acurácia..."):
                     try:
                         assertividade_plot_df = df_acertos_t3.groupby(['Mesorregião', 'Ano'])['acerto'].mean().reset_index()
                         assertividade_plot_df.rename(columns={'acerto': 'Taxa de Acerto'}, inplace=True) # Renomeia para label
@@ -341,7 +371,7 @@ else:
                             assertividade_plot_df.sort_values('Ano'),
                             x="Ano", y="Taxa de Acerto", color="Mesorregião",
                             markers=True, # Adiciona marcadores como na original
-                            title="Assertividade Média por Mesorregião",
+                            title="Acurácia Média por Mesorregião",
                             labels={'Taxa de Acerto': 'Taxa de Acerto', 'Ano': 'Ano'}
                          )
                         fig_assert_t3.update_yaxes(tickformat=".0%") # Formato percentual
@@ -354,7 +384,7 @@ else:
 
     # --- Tab 4: Mapa de Assertividade (Mantida da versão anterior) ---
     with tab4:
-        st.subheader("Mapa de Assertividade Média por Mesorregião")
+        st.subheader("Mapa de Acurácia Média por Mesorregião")
         st.markdown("Visualize a distribuição geográfica da taxa média de acerto do modelo em um ano específico.")
         selected_year_t4 = st.selectbox("Selecione o Ano para o Mapa:", options=ANOS_STR, index=len(ANOS_STR)-1, key='year_tab4')
 
@@ -367,7 +397,7 @@ else:
                 if 'Nome_Mesorregiao' in geojson_data.columns:
                      gdf_merged_t4 = geojson_data.merge(assertividade_media_ano[['Mesorregião', 'Acerto (%)']], left_on="Nome_Mesorregiao", right_on="Mesorregião", how="left")
                      gdf_merged_t4['Acerto (%)'].fillna(0, inplace=True)
-                     with st.spinner("Gerando mapa de assertividade..."):
+                     with st.spinner("Gerando mapa de Acurácia..."):
                          fig_map = create_map_chart(gdf_merged_t4, selected_year_t4)
                          if fig_map: st.plotly_chart(fig_map, use_container_width=True)
                 else: st.error("Coluna 'Nome_Mesorregiao' não encontrada no GeoJSON.")
