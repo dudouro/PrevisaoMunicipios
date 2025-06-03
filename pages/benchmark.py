@@ -281,10 +281,8 @@ df_revenues_all = load_all_revenue_data(REVENUE_FILES_PATTERN)
 tab_receitas, tab_mapa  = st.tabs(["📈 Comparativo de Receitas Municipais",
                                    "🗺️ Mapa Regional de Variáveis" 
 ])
-# --- Tab 2: Comparativo de Receitas Municipais ---
+# --- Tab 1: Comparativo de Receitas Municipais ---
 with tab_receitas:
-    st.title("📊 Comparativo Municipal e Regional 🗺️")
-
     df_benchmark_all = load_benchmark_data(ANOS_INT_BENCHMARK)
     df_mesoregiao_geral = load_mesoregiao_info()
     gdf_geojson = load_geojson_map_data(GEOJSON_PATH)
@@ -366,7 +364,9 @@ with tab_receitas:
                     var_name='Tipo_Receita',
                     value_name='Valor_Arrecadado'
                 )
-                
+                # garantir que "Ano" seja numérico
+                df_melted_receita['Ano'] = pd.to_numeric(df_melted_receita['Ano'], errors='coerce')
+
                 if df_melted_receita.empty:
                     st.warning(f"Nenhum dado de receita encontrado para os municípios e tipos de receita selecionados.")
                 else:
@@ -445,7 +445,7 @@ with tab_receitas:
                         st.error(f"Erro ao exibir a tabela de dados de receita: {e}\n{traceback.format_exc()}")
                         st.dataframe(df_filtered_by_municipio[cols_to_display_receita].sort_values(by=['Nome_Municipio', 'Ano']), use_container_width=True)
 
-# --- Tab 1: Mapa Regional de Variáveis (Benchmark) ---
+# --- Tab 2: Mapa Regional de Variáveis (Benchmark) ---
 with tab_mapa:
     st.header("Mapa de Variáveis por Mesorregião")
     st.markdown("Visualize a média de uma variável de benchmark distribuída pelas mesorregiões de Minas Gerais para um ano específico.")
