@@ -392,27 +392,27 @@ def exibir_indicadores(indicadores):
             "mensagem": lambda v: "🔴 Endividamento elevado!" if v > 1 else "🟢 Endividamento aceitável.",
             "formula": "Dívida Consolidada / Receita Corrente Líquida"
         },
-        "despesa_com_pessoal": { # Este é o valor absoluto, a regra de LRF usa RCL
+        "Despesa com pessoal": { # Este é o valor absoluto, a regra de LRF usa RCL
             "mensagem": lambda v: "🟡 Avaliar em relação à RCL.", # Mensagem genérica, pois depende da RCL
             "formula": "Valor absoluto da Despesa com Pessoal",
-            "fiscal": lambda v, rcl_indicador: [ # Usa rcl_indicador que é passado
-                ("🚨 Violação LRF: >60% RCL", "red") if rcl_indicador > 0 and v/rcl_indicador >= 0.6 else None,
-                ("⚠️ Alerta LRF: ≥54% e <60% RCL", "orange") if rcl_indicador > 0 and 0.54 <= v/rcl_indicador < 0.6 else None,
-                ("🟢 Prudencial LRF: ≥51.3% e <54% RCL", "yellow") if rcl_indicador > 0 and 0.513 <= v/rcl_indicador < 0.54 else None,
-                ("🔵 Abaixo do Limite Prudencial LRF", "green") if rcl_indicador > 0 and v/rcl_indicador < 0.513 else None,
-                 ("RCL não informada ou zero para cálculo LRF", "gray") if rcl_indicador == 0 else None
+            "fiscal": lambda v, rcl_atual: [ # Usa rcl_indicador que é passado
+                ("🚨 Violação LRF: >60% RCL", "red") if rcl_atual > 0 and v/rcl_atual >= 0.6 else None,
+                ("⚠️ Alerta LRF: ≥54% e <60% RCL", "orange") if rcl_atual > 0 and 0.54 <= v/rcl_atual < 0.6 else None,
+                ("🟢 Prudencial LRF: ≥51.3% e <54% RCL", "yellow") if rcl_atual > 0 and 0.513 <= v/rcl_atual < 0.54 else None,
+                ("🔵 Abaixo do Limite Prudencial LRF", "green") if rcl_atual > 0 and v/rcl_atual < 0.513 else None,
+                 ("RCL não informada ou zero para cálculo LRF", "gray") if rcl_atual == 0 else None
             ]
         },
-        "divida_consolidada": { # Valor absoluto
+        "Dívida Consolidada": { # Valor absoluto
             "mensagem": lambda v: "🟡 Avaliar em relação à RCL.",
             "formula": "Valor absoluto da Dívida Consolidada",
-            "fiscal": lambda v, rcl_indicador: [
-                ("🚨 Violação LRF (Dívida): >1.2x RCL", "red") if rcl_indicador > 0 and v/rcl_indicador > 1.2 else None,
-                ("🔵 Dívida dentro do limite LRF", "green") if rcl_indicador > 0 and v/rcl_indicador <= 1.2 else None,
-                ("RCL não informada ou zero para cálculo LRF", "gray") if rcl_indicador == 0 else None
+            "fiscal": lambda v, receita_corrente_liquida: [
+                ("🚨 Violação LRF (Dívida): >1.2x RCL", "red") if receita_corrente_liquida > 0 and v/receita_corrente_liquida > 1.2 else None,
+                ("🔵 Dívida dentro do limite LRF", "green") if receita_corrente_liquida > 0 and v/receita_corrente_liquida <= 1.2 else None,
+                ("RCL não informada ou zero para cálculo LRF", "gray") if receita_corrente_liquida == 0 else None
             ]
         },
-        "operacoes_credito": {
+        "Operações de crédito": {
             "mensagem": lambda v: "🟡 Avaliar em relação à RCL.",
             "formula": "Valor absoluto das operações de crédito",
             # Adicionar regras fiscais se aplicável, ex: limite de 16% da RCL para novas operações no ano
@@ -431,7 +431,7 @@ def exibir_indicadores(indicadores):
         "endividamento": { # (DC + OC) / RCL
             "mensagem": lambda v: "🔴 Muito elevado" if v > 1.0 else "⚠️ Elevado" if v > 0.8 else "🟢 Controlado", # Ajuste os limites conforme STN/LRF
             "formula": "(Dívida Consolidada + Operações de Crédito) / RCL",
-            "fiscal": lambda v, rcl_indicador: [ # rcl_indicador é passado
+            "fiscal": lambda v, rcl_atual: [ # rcl_indicador é passado
                  ("🚨 CAPAG Endividamento D (>100% RCL para Municípios)", "red") if v > 1.0 else None, # Exemplo, verifique os limites corretos
                  ("⚠️ CAPAG Endividamento C (entre X% e Y% RCL)", "orange") if 0.8 < v <= 1.0 else None, # Exemplo
                  ("🟢 CAPAG Endividamento A ou B", "green") if v <= 0.8 else None # Exemplo
