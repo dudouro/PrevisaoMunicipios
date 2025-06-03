@@ -370,9 +370,14 @@ with tab_receitas:
                 if df_melted_receita.empty:
                     st.warning(f"Nenhum dado de receita encontrado para os municípios e tipos de receita selecionados.")
                 else:
+                    # --- PONTO CRÍTICO DA CORREÇÃO ---
+                    # Ordenar o DataFrame pelos grupos e, crucialmente, pelo Ano
+                    df_melted_receita.sort_values(by=['Nome_Municipio', 'Tipo_Receita', 'Ano'], inplace=True)
+                    # --- FIM DA CORREÇÃO PRINCIPAL ---
+
                     revenue_types_str = ', '.join(selected_revenue_types)
                     st.subheader(f"Comparativo de Arrecadação: {revenue_types_str}")
-
+                    
                     # Gráfico de Linhas
                     try:
                         anos_ordenados = sorted(df_melted_receita['Ano'].unique())
