@@ -396,38 +396,39 @@ with tab_receitas:
                     except Exception as e:
                         st.error(f"Erro ao gerar o gráfico de linhas de receita: {e}\n{traceback.format_exc()}")
 
-                    # Gráfico de Barras Empilhado por Tipo de Receita, facetado por Município
-                    st.subheader(f"Composição Detalhada da Receita por Ano e Município") ## ALTERAÇÃO ##: Título
+                    # --- GRÁFICO DE BARRAS: MUNICÍPIOS LADO A LADO, IMPOSTOS EMPILHADOS DENTRO DE CADA MUNICÍPIO (POR ANO) ---
+                    st.subheader(f"Composição da Receita por Município (Anual)")
                     try:
-                        num_municipios_selecionados = len(selected_municipios_receita)
-                        facet_col_wrap_val = 0 # Auto-wrap by default
-                        if num_municipios_selecionados > 1:
-                            if num_municipios_selecionados <= 3: # If 1, 2 or 3 municipalities, show them in one row
-                                facet_col_wrap_val = num_municipios_selecionados
-                            elif num_municipios_selecionados == 4: # If 4, show 2x2
-                                facet_col_wrap_val = 2
-                            else: # For more than 4, maybe 3 per row
-                                facet_col_wrap_val = 3 
-                        
-                        fig_bar_receita = px.bar(
-                            df_melted_receita, 
-                            x='Ano', 
-                            y='Valor_Arrecadado',
-                            color='Tipo_Receita',      # ## ALTERAÇÃO ##: Cor pelos Tipos de Receita para empilhamento
-                            barmode='stack',           # ## ALTERAÇÃO ##: Barras empilhadas
-                            facet_col='Nome_Municipio',# ## ALTERAÇÃO ##: Um subplot por município
-                            facet_col_wrap=facet_col_wrap_val, # Controla o número de subplots por linha
-                            title=f"Composição da Receita por Ano (Agrupado por Município)", # ## ALTERAÇÃO ##: Título
-                            labels={'Ano': 'Ano', 'Valor_Arrecadado': 'Valor Arrecadado Total', # Y é o total empilhado
-                                    'Nome_Municipio': 'Município', 'Tipo_Receita': 'Tipo de Receita'}
-                        )
-                        # Renomeia os títulos das facetas para apenas o nome do município
-                        fig_bar_receita.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-                        fig_bar_receita.update_layout(legend_title_text='Tipo de Receita') # ## ALTERAÇÃO ##: Legenda
-                        st.plotly_chart(fig_bar_receita, use_container_width=True)
-                    except Exception as e:
-                        st.error(f"Erro ao gerar o gráfico de barras de receita: {e}\n{traceback.format_exc()}")
+                        # Garantir que 'Ano' e 'Nome_Municipio' estejam ordenados
+                        anos_ordenados_barra = sorted(df_melted_receita['Ano'].unique())
+                        municipios_ordenados_barra = selected_municipios_receita # Ou sorted(df_melted_receita['Nome_Municipio'].unique()) se quiser alfabético
+                                                                               # filtrado pelos selecionados.
 
+                        fig_bar_receita_empilhado_por_municipio = px.bar(
+                            df_melted_receita,
+                            x='Nome_Municipio',     # Municípios no eixo X de cada subplot
+                            y='Valor_Arrecadado',
+                            color='Tipo_Receita',   # Tipos de receita serão empilhados por cor
+                            barmode='stack',        # Empilha os 'Tipo_Receita' para cada 'Nome_Municipio'
+                            facet_col='Ano',        # Um subplot para cada ano
+                            facet_col_wrap=0,       # 0 para auto-wrap, ou defina um número
+                                                    # ex: 3 para 3 anos por linha
+                            category_orders={
+                                "Ano": anos_ordenados_barra,
+                                "Nome_Municipio": municipios_ordenados_barra
+                            },
+                            title=f"Composição da Receita por Município (Comparativo Anual)",
+                            labels={'Valor_Arrecadado': 'Valor Arrecadado Total', # Y é o total empilhado
+                                    'Nome_Municipio': 'Município',
+                                    'Tipo_Receita': 'Tipo de Receita'}
+                        )
+                        # Limpa os títulos dos subplots (facetas)
+                        fig_bar_receita_empilhado_por_municipio.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+                        fig_bar_receita_empilhado_por_municipio.update_layout(legend_title_text='Tipo de Receita')
+                        st.plotly_chart(fig_bar_receita_empilhado_por_municipio, use_container_width=True)
+
+                    except Exception as e:
+                        st.error(f"Erro ao gerar o gráfico de barras empilhadas por município: {e}\n{traceback.format_exc()}")
                     # Tabela de Dados Filtrados
                     st.subheader("Dados Detalhados de Receita (Filtrados)")
                     cols_to_display_receita = ['Ano', 'Nome_Municipio']
