@@ -375,10 +375,12 @@ with tab_receitas:
 
                     # Gráfico de Linhas
                     try:
+                        anos_ordenados = sorted(df_melted_receita['Ano'].unique())
                         fig_line_receita = px.line(
                             df_melted_receita, x='Ano', y='Valor_Arrecadado',
                             color='Nome_Municipio',
                             line_dash='Tipo_Receita',
+                            category_orders={'Ano': anos_ordenados},
                             title=f"Evolução Anual das Receitas Selecionadas",
                             markers=True,
                             labels={'Ano': 'Ano', 'Valor_Arrecadado': 'Valor Arrecadado',
