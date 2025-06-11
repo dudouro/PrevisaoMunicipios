@@ -79,21 +79,72 @@ def load_geojson(path):
 
 # --- Funções de Geração de Gráficos e UI (Mantidas/Recriadas) ---
 
-# Função para Tab 1 (Mantida da versão anterior)
 def create_distribution_chart(df_filtered, variable, title_prefix, year_str):
-    if df_filtered.empty or variable not in df_filtered.columns: return None
+    if df_filtered.empty or variable not in df_filtered.columns:
+        return None
+
+    # Remover valores nulos da variável e da classificação
     df_filtered = df_filtered.dropna(subset=[variable, 'y_real'])
-    if df_filtered.empty: return None
-    df_A = df_filtered[df_filtered['y_real'] == 'A']; df_B = df_filtered[df_filtered['y_real'] == 'B']
+    if df_filtered.empty:
+        return None
+
+    # Remoção de outliers usando IQR
+    Q1 = df_filtered[variable].quantile(0.25)
+    Q3 = df_filtered[variable].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    df_filtered = df_filtered[(df_filtered[variable] >= lower_bound) & (df_filtered[variable] <= upper_bound)]
+    if df_filtered.empty:
+        return None
+
+    # Separar em grupos A e B
+    df_A = df_filtered[df_filtered['y_real'] == 'A']
+    df_B = df_filtered[df_filtered['y_real'] == 'B']
+
     min_val, max_val = df_filtered[variable].min(), df_filtered[variable].max()
-    if pd.isna(min_val) or pd.isna(max_val) or min_val == max_val: return None
-    bins = np.linspace(min_val, max_val, 20); bin_centers = (bins[:-1] + bins[1:]) / 2
-    hist_A, _ = np.histogram(df_A[variable].dropna(), bins=bins); hist_B, _ = np.histogram(df_B[variable].dropna(), bins=bins)
+    if pd.isna(min_val) or pd.isna(max_val) or min_val == max_val:
+        return None
+
+    bins = np.linspace(min_val, max_val, 20)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    hist_A, _ = np.histogram(df_A[variable].dropna(), bins=bins)
+    hist_B, _ = np.histogram(df_B[variable].dropna(), bins=bins)
+
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=bin_centers, y=hist_A, name='Situação A', marker_color=CORES_SITUACAO['A'], opacity=0.8, hovertemplate=f'<b>{variable} (faixa)</b>: %{{x:.2f}}<br><b>Municípios A</b>: %{{y}}<extra></extra>'))
-    fig.add_trace(go.Bar(x=bin_centers, y=-hist_B, name='Situação B', marker_color=CORES_SITUACAO['B'], opacity=0.8, hovertemplate=f'<b>{variable} (faixa)</b>: %{{x:.2f}}<br><b>Municípios B</b>: %{{customdata[0]}}<extra></extra>', customdata=np.array([hist_B]).T))
-    fig.update_layout(title=f"{title_prefix} - {year_str}", xaxis_title=f"{variable}", yaxis_title="Quantidade de Municípios", barmode='relative', bargap=0.1, legend_title_text='Situação Real', hovermode='x unified', annotations=[dict(xref='paper', yref='paper', x=1, y=1.05, showarrow=False, text=f'Range {variable}: {min_val:.2f} a {max_val:.2f}', font=dict(size=10, color='grey'))])
-    fig.update_yaxes(hoverformat='.0f'); return fig
+    fig.add_trace(go.Bar(
+        x=bin_centers, y=hist_A, name='Situação A',
+        marker_color=CORES_SITUACAO['A'], opacity=0.8,
+        hovertemplate=f'<b>{variable} (faixa)</b>: %{{x:.2f}}<br><b>Municípios A</b>: %{{y}}<extra></extra>'
+    ))
+
+    fig.add_trace(go.Bar(
+        x=bin_centers, y=-hist_B, name='Situação B',
+        marker_color=CORES_SITUACAO['B'], opacity=0.8,
+        hovertemplate=f'<b>{variable} (faixa)</b>: %{{x:.2f}}<br><b>Municípios B</b>: %{{customdata[0]}}<extra></extra>',
+        customdata=np.array([hist_B]).T
+    ))
+
+    fig.update_layout(
+        title=f"{title_prefix} - {year_str}",
+        xaxis_title=f"{variable}",
+        yaxis_title="Quantidade de Municípios",
+        barmode='relative',
+        bargap=0.1,
+        legend_title_text='Situação Real',
+        hovermode='x unified',
+        annotations=[
+            dict(
+                xref='paper', yref='paper', x=1, y=1.05, showarrow=False,
+                text=f'Range {variable} (sem outliers): {min_val:.2f} a {max_val:.2f}',
+                font=dict(size=10, color='grey')
+            )
+        ]
+    )
+
+    fig.update_yaxes(hoverformat='.0f')
+    return fig
 
 # Função de formatação da tabela para Tab 2 (Mantida da versão anterior)
 def format_classification_table(df_pivot):
