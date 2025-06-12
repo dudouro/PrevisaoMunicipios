@@ -542,7 +542,7 @@ def exibir_referencia(df_referencia_original, indicadores, porte_simulado):
                     media_referencia_calculada = pd.Series(dtype=float)
 
             num_indicadores = len(indicadores)
-            cols_per_row = 3
+            cols_per_row = 2
             indicadores_keys = list(indicadores.keys())
 
             for i in range(0, num_indicadores, cols_per_row):
@@ -550,37 +550,42 @@ def exibir_referencia(df_referencia_original, indicadores, porte_simulado):
                 for j in range(cols_per_row):
                     if i + j < num_indicadores:
                         key_idx = i + j
-                        k = indicadores_keys[key_idx] # Nome do indicador (ex: "receita_per_capita")
-                        v_simulado = indicadores[k]  # Valor simulado para este indicador
+                        k = indicadores_keys[key_idx] 
+                        v_simulado = indicadores[k]  
 
-                        # Formatar valor principal
+                        # Formatar valor principal (valor_formatado)
+                        # ... seu código de formatação ...
                         valor_formatado = f"{v_simulado:.2f}"
-                        # Ajuste para nomes de indicadores com espaços, como "Despesa com pessoal"
-                        # A lógica de formatação original pode não capturar esses se não tiverem "receita", "despesa", etc.
                         is_currency_like = any(term in k.lower() for term in ['receita', 'despesa', 'divida', 'caixa'])
-                        if k in ["Despesa com pessoal", "Dívida Consolidada", "Operações de crédito"]: # Adicionar outros se necessário
+                        if k in ["Despesa com pessoal", "Dívida Consolidada", "Operações de crédito"]:
                             is_currency_like = True
                         
                         if any(term in k for term in ["representatividade", "participacao", "comprometimento"]) or "endividamento" == k:
                             valor_formatado = f"{v_simulado:.2%}"
                         elif isinstance(v_simulado, (int, float)) and not ("per_capita" in k or "liquidez" in k):
                              valor_formatado = formatar_numero(v_simulado, prefixo='R$' if is_currency_like else '')
-                        elif isinstance(v_simulado, (int, float)) and ("per_capita" in k or "liquidez" in k): # Para per capitas e liquidez sem R$
+                        elif isinstance(v_simulado, (int, float)) and ("per_capita" in k or "liquidez" in k):
                              valor_formatado = formatar_numero(v_simulado, prefixo='')
+                        # ... fim da formatação ...
 
 
                         delta_texto = "N/A"
-                        delta_color = "normal"
+                        delta_color = "normal" 
 
-                        # k deve corresponder ao nome da coluna no df_referencia
+                        # Calcular diff, delta_texto e delta_color
                         if k in media_referencia_calculada and not pd.isna(media_referencia_calculada[k]):
                             ref_val = media_referencia_calculada[k]
                             if ref_val != 0:
                                 diff = ((v_simulado - ref_val) / abs(ref_val)) * 100
-                                delta_texto = f"{diff:.1f}% vs Média {tipo_comparacao_msg}"
-                                if diff > 5: delta_color = "normal"
-                                elif diff < -5: delta_color = "inverse"
-                                else: delta_color = "off"
+                                delta_texto = f"{diff:.1f}% da Média {tipo_comparacao_msg}"
+                                
+                                if diff < 0:
+                                    delta_color = "inverse"
+                                elif diff > 0:
+                                    delta_color = "normal"
+                                else:
+                                    delta_color = "off"
+                                    
                             else:
                                 delta_texto = f"Média {tipo_comparacao_msg} é 0"
                                 delta_color = "off"
@@ -588,21 +593,18 @@ def exibir_referencia(df_referencia_original, indicadores, porte_simulado):
                             delta_texto = f"Média {tipo_comparacao_msg} N/A"
                             delta_color = "off"
                         else:
-                            # Este caso ocorre se o indicador 'k' não está entre as colunas numéricas
-                            # do df_para_comparar ou não estava em 'colunas_para_media'.
                             delta_texto = f"Não na Média {tipo_comparacao_msg}"
                             delta_color = "off"
                         
-                        # Usar o nome original do indicador (k) para o label, formatando-o
+                        # Certifique-se de que esta linha está aqui!
                         label_metrica = k.replace("_", " ").title()
 
                         cols[j].metric(
-                            label=label_metrica,
+                            label=label_metrica, # Aqui label_metrica é usada
                             value=valor_formatado,
                             delta=delta_texto,
-                            delta_color=delta_color
+                            delta_color="normal"
                         )
-    # --- Fim da função auxiliar interna ---
 
     if df_referencia_original is None or df_referencia_original.empty:
         st.info(f"Não há dados de referência de {ano_referencia} carregados para realizar comparações.")
@@ -701,15 +703,19 @@ def exibir_referencia2(df_referencia, indicadores, porte_simulado):
                         ref = media_referencia[k]
                         if not pd.isna(ref) and ref != 0:
                             diff = ((v - ref) / abs(ref)) * 100 # Usar abs(ref) para evitar problemas com ref negativo
-                            delta_texto = f"{diff:.1f}% vs Média"
+                            delta_texto = f"{diff:.1f}% da Média"
                             # Definir cor do delta (opcional, mas melhora a visualização)
                             # Se maior é melhor para o indicador k, então diff > 0 é verde.
                             # Ex: para 'receita_per_capita', maior é melhor. Para 'endividamento', menor é melhor.
                             # Esta lógica pode ser complexa e específica para cada indicador.
                             # Simplificando:
-                            if diff > 5: delta_color = "normal" # Verde se positivo e bom
-                            elif diff < -5: delta_color = "inverse" # Vermelho se negativo e ruim
-                            else: delta_color = "off" # Cinza se próximo
+                            # Nova lógica
+                            if diff < 0:
+                                delta_color = "inverse"  # Vermelho para qualquer diff negativo
+                            elif diff > 0:
+                                delta_color = "normal"   # Verde para qualquer diff positivo
+                            else: # diff é zero (ou indistinguível de zero para floats)
+                                delta_color = "off"      # Cinza
                         elif pd.isna(ref):
                             delta_texto = "Média 2022 N/A"
                             delta_color = "off"
