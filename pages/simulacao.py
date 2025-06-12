@@ -308,22 +308,26 @@ def main():
 def calcular_indicadores(dados):
     indicadores = {}
     populacao = dados.get("populacao", 0)
-    populacao_div = populacao if populacao > 0 else 1 # Evitar divisão por zero, mas manter 0 para cálculo se pop for 0
+    populacao_div = populacao if populacao > 0 else 1
 
     receita_total = dados.get("receita_total", 0)
     receita_propria = dados.get("receita_propria", 0)
     receita_transferencias = dados.get("receita_transferencias", 0)
-    receita_corrente_liquida = dados.get("receita_corrente_liquida", 0)
+    # Pegar a RCL dos dados de entrada
+    receita_corrente_liquida_input = dados.get("receita_corrente_liquida", 0) # <--- Pega o valor do input
     despesa_total = dados.get("despesa_total", 0)
-    despesa_com_pessoal_input = dados.get("despesa_com_pessoal", 0) # Nome do input
+    despesa_com_pessoal_input = dados.get("despesa_com_pessoal", 0)
     gastos_operacionais = dados.get("gastos_operacionais", 0)
     disponibilidade_caixa = dados.get("disponibilidade_caixa", 0)
     ativo_circulante = dados.get("ativo_circulante", 0)
     obrigacoes_curto_prazo = dados.get("obrigacoes_curto_prazo", 0)
-    divida_consolidada_input = dados.get("divida_consolidada", 0) # Nome do input
-    operacoes_credito_input = dados.get("operacoes_credito", 0) # Nome do input
+    divida_consolidada_input = dados.get("divida_consolidada", 0)
+    operacoes_credito_input = dados.get("operacoes_credito", 0)
 
-    # Cálculos principais - padronizando os nomes
+    # Adicionar RCL ao dicionário de indicadores
+    indicadores["receita_corrente_liquida"] = receita_corrente_liquida_input # <--- ADIÇÃO IMPORTANTE
+
+    # Cálculos principais - usando receita_corrente_liquida_input onde necessário
     indicadores["receita_per_capita"] = receita_total / populacao_div
     indicadores["representatividade_da_receita_propria"] = receita_propria / receita_total if receita_total != 0 else 0
     indicadores["participacao_das_receitas_de_transferencias"] = receita_transferencias / receita_total if receita_total != 0 else 0
@@ -331,20 +335,18 @@ def calcular_indicadores(dados):
     indicadores["cobertura_de_despesas"] = receita_total / despesa_total if despesa_total != 0 else 0
     indicadores["recursos_para_cobertura_de_queda_de_arrecadacao"] = disponibilidade_caixa / receita_total if receita_total != 0 else 0
     indicadores["recursos_para_cobertura_de_obrigacoes_de_curto_prazo"] = disponibilidade_caixa / obrigacoes_curto_prazo if obrigacoes_curto_prazo != 0 else 0
-    indicadores["comprometimento_das_receitas_correntes_com_as_obrigacoes_de_curto_prazo"] = obrigacoes_curto_prazo / receita_corrente_liquida if receita_corrente_liquida != 0 else 0
+    indicadores["comprometimento_das_receitas_correntes_com_as_obrigacoes_de_curto_prazo"] = obrigacoes_curto_prazo / receita_corrente_liquida_input if receita_corrente_liquida_input != 0 else 0
     indicadores["divida_per_capita"] = divida_consolidada_input / populacao_div
-    indicadores["comprometimento_das_receitas_correntes_com_o_endividamento"] = divida_consolidada_input / receita_corrente_liquida if receita_corrente_liquida != 0 else 0
+    indicadores["comprometimento_das_receitas_correntes_com_o_endividamento"] = divida_consolidada_input / receita_corrente_liquida_input if receita_corrente_liquida_input != 0 else 0
     
-    # Features diretas para o modelo (nomes padronizados snake_case)
     indicadores["Despesa com pessoal"] = despesa_com_pessoal_input
     indicadores["Dívida Consolidada"] = divida_consolidada_input
     indicadores["Operações de crédito"] = operacoes_credito_input
 
-    
     indicadores["poupanca_corrente"] = receita_total - despesa_total
     indicadores["liquidez_relativa"] = obrigacoes_curto_prazo / disponibilidade_caixa if disponibilidade_caixa != 0 else 0
-    indicadores["indicador_de_liquidez"] = ativo_circulante / obrigacoes_curto_prazo if obrigacoes_curto_prazo != 0 else 0 # Atenção aqui: invertido em relação à descrição "Passivo / Ativo Circulante"? Normalmente é Ativo Circ/Passivo Circ. Verifique sua fórmula.
-    indicadores["endividamento"] = (divida_consolidada_input + operacoes_credito_input) / receita_corrente_liquida if receita_corrente_liquida != 0 else 0
+    indicadores["indicador_de_liquidez"] = ativo_circulante / obrigacoes_curto_prazo if obrigacoes_curto_prazo != 0 else 0
+    indicadores["endividamento"] = (divida_consolidada_input + operacoes_credito_input) / receita_corrente_liquida_input if receita_corrente_liquida_input != 0 else 0
 
     return indicadores
 
